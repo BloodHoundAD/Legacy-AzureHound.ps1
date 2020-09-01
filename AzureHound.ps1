@@ -21,6 +21,10 @@ function Get-PrincipalMap {
 
 function New-Output($Coll, $Type) {
     Write-Host "Writing output for $($Type)"
+    $Count = $Coll.Count
+    if ($Count = null) {
+        $Coll = @($Coll)
+    }
     $Output = New-Object PSObject
     $Meta = New-Object PSObject
     $Meta | Add-Member Noteproperty 'count' $Coll.Count
@@ -29,7 +33,7 @@ function New-Output($Coll, $Type) {
     $Output | Add-Member Noteproperty 'meta' $Meta
     $Output | Add-Member Noteproperty 'data' $Coll
     $FileName = "az" + $($Type) + ".json"
-    $Output | ConvertTo-Json | Out-File $FileName
+    $Output | ConvertTo-Json | Out-File -Encoding "utf8" -FilePath $FileName
 }
 
 function Invoke-AzureHound {
@@ -299,7 +303,7 @@ function Invoke-AzureHound {
         }
     }
 
-    New-Output -Coll $Coll -Type "vmprivileges"
+    New-Output -Coll $Coll -Type "vmpermissions"
     
     # Inbound permissions against resource group
     # RoleDefinitionName 			RoleDefinitionId
@@ -765,6 +769,7 @@ function Invoke-AzureHound {
     # Privilege role administrator
     # Can add role assignments to any other user including themselves
     
+    $PrivRoleColl = @()
     $PrivilegedRoleAdmins = $UserRoles | ? { $_.RoleID -Contains 'e8611ab8-c189-46e8-94e1-60213ab1f814' }
     $PrivilegedRoleAdminRights = ForEach ($User in $PrivilegedRoleAdmins) {	
     		
@@ -777,7 +782,7 @@ function Invoke-AzureHound {
         #$PrivilegedRoleAdminRight | Add-Member Noteproperty 'TenantVerifiedDomains' $TenantDetails.VerifiedDomains
         $PrivilegedRoleAdminRight | Add-Member Noteproperty 'TenantID' $TenantDetails.ObjectID
     		
-        $PrivilegedRoleAdminRight
+        $PrivRoleColl += $PrivilegedRoleAdminRight
     }
     
     $Coll = @()
@@ -815,7 +820,7 @@ function Invoke-AzureHound {
     # $GroupsAdminsRights | Export-CSV -NoTypeInformation -Append groupsrights.csv
     
     New-Output -Coll $GlobalAdminsRights -Type "globaladminrights"
-    New-Output -Coll $PrivilegedRoleAdminRights -Type "privroleadminrights"
+    New-Output -Coll $PrivRoleColl -Type "privroleadminrights"
     
     # $GlobalAdminsRights | Export-CSV -NoTypeInformation globaladminrights.csv
     # $PrivilegedRoleAdminRights | Export-CSV -NoTypeInformation privroleadminrights.csv
