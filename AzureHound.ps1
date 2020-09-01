@@ -22,7 +22,7 @@ function Get-PrincipalMap {
 function New-Output($Coll, $Type) {
     Write-Host "Writing output for $($Type)"
     $Count = $Coll.Count
-    if ($Count = null) {
+    if ($Count = $null) {
         $Coll = @($Coll)
     }
     $Output = New-Object PSObject
