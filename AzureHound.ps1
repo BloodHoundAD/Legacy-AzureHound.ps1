@@ -287,7 +287,7 @@ function Invoke-AzureHound {
     
     $Coll = @()
     Get-AZSubscription | ForEach-Object {
-        Select-AzSubscription -SubscriptionID $_.Id
+        Select-AzSubscription -SubscriptionID $_.Id | Out-Null
         Get-AzVm | ForEach-Object {
             $VM = $_
         	
@@ -336,7 +336,7 @@ function Invoke-AzureHound {
     # User Access Administrator		18d7d88d-d35e-4fb5-a5c3-7773c20a72d9
     $Coll = @()
     Get-AZSubscription | ForEach-Object {
-        Select-AzSubscription -SubscriptionID $_.Id
+        Select-AzSubscription -SubscriptionID $_.Id | Out-Null
 		
         Get-AzResourceGroup | ForEach-Object {
             $RG = $_
@@ -383,7 +383,7 @@ function Invoke-AzureHound {
     # Key Vaults
     $Coll = @()
     Get-AZSubscription | ForEach-Object {
-        Select-AzSubscription -SubscriptionID $_.Id
+        Select-AzSubscription -SubscriptionID $_.Id | Out-Null
         Get-AzKeyVault | ForEach-Object {
             $KeyVault = $_
         	
@@ -424,7 +424,7 @@ function Invoke-AzureHound {
     $Coll = @()
     # KeyVault access policies
     Get-AZSubscription | ForEach-Object {
-        Select-AzSubscription -SubscriptionID $_.Id
+        Select-AzSubscription -SubscriptionID $_.Id | Out-Null
         Get-AzKeyVault | ForEach-Object {
             $KeyVault = $_
             $PrincipalMap = Get-PrincipalMap
@@ -586,7 +586,7 @@ function Invoke-AzureHound {
             $PWResetRight | Add-Member Noteproperty 'UserID' $User.UserID
             $PWResetRight | Add-Member Noteproperty 'UserOnPremID' $User.UserOnPremID
             $PWResetRight | Add-Member Noteproperty 'TargetUserName' $TargetUser.DisplayName
-            $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.ObjectId
+            $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.Id
             $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.OnPremisesSecurityIdentifier
         		
             $PWResetRight
@@ -620,7 +620,7 @@ function Invoke-AzureHound {
             $PWResetRight | Add-Member Noteproperty 'UserID' $User.UserID
             $PWResetRight | Add-Member Noteproperty 'UserOnPremID' $User.UserOnPremID
             $PWResetRight | Add-Member Noteproperty 'TargetUserName' $TargetUser.DisplayName
-            $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.ObjectId
+            $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.Id
             $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.OnPremisesSecurityIdentifier
     		
             $PWResetRight
@@ -744,7 +744,7 @@ function Invoke-AzureHound {
             $GroupRight | Add-Member Noteproperty 'UserID' $User.UserID
             $GroupRight | Add-Member Noteproperty 'UserOnPremID' $User.UserOnPremID
             $GroupRight | Add-Member Noteproperty 'TargetGroupName' $TargetGroup.DisplayName
-            $GroupRight | Add-Member Noteproperty 'TargetGroupID' $TargetGroup.ObjectID
+            $GroupRight | Add-Member Noteproperty 'TargetGroupID' $TargetGroup.ID
     		
             $GroupRight
         }
@@ -763,7 +763,7 @@ function Invoke-AzureHound {
             $GroupRight | Add-Member Noteproperty 'UserID' $User.UserID
             $GroupRight | Add-Member Noteproperty 'UserOnPremID' $User.UserOnPremID
             $GroupRight | Add-Member Noteproperty 'TargetGroupName' $TargetGroup.DisplayName
-            $GroupRight | Add-Member Noteproperty 'TargetGroupID' $TargetGroup.ObjectID
+            $GroupRight | Add-Member Noteproperty 'TargetGroupID' $TargetGroup.ID
     		
             $GroupRight
         }
@@ -782,7 +782,7 @@ function Invoke-AzureHound {
         $GlobalAdminRight | Add-Member Noteproperty 'UserOnPremID' $User.UserOnPremID
         $GlobalAdminRight | Add-Member Noteproperty 'TenantDisplayName' $Tenant.DisplayName
         #$GlobalAdminRight | Add-Member Noteproperty 'TenantVerifiedDomains' $Tenants.VerifiedDomains
-        $GlobalAdminRight | Add-Member Noteproperty 'TenantID' $Tenant.ObjectID
+        $GlobalAdminRight | Add-Member Noteproperty 'TenantID' $Tenant.ID
     		
         $GlobalAdminRight
     }
@@ -801,7 +801,7 @@ function Invoke-AzureHound {
         $PrivilegedRoleAdminRight | Add-Member Noteproperty 'UserOnPremID' $User.UserOnPremID
         $PrivilegedRoleAdminRight | Add-Member Noteproperty 'TenantDisplayName' $Tenant.DisplayName
         #$PrivilegedRoleAdminRight | Add-Member Noteproperty 'TenantVerifiedDomains' $TenantDetails.VerifiedDomains
-        $PrivilegedRoleAdminRight | Add-Member Noteproperty 'TenantID' $Tenant.ObjectID
+        $PrivilegedRoleAdminRight | Add-Member Noteproperty 'TenantID' $Tenant.ID
     		
         $PrivRoleColl += $PrivilegedRoleAdminRight
     }
@@ -903,6 +903,9 @@ function Invoke-AzureHound {
 	
 #     $PrivilegedAuthenticationAdmins = $_ | ? { $_.RoleID -Contains '7be44c8a-adaf-4e2a-84d6-ab2649e08a13' }
 #     $PrivilegedAuthenticationAdmins
+Write-Host "Compressing files"
+Compress-Archive *.json -DestinationPath azurecollection.zip
+rm *.json
 	
 }
 
