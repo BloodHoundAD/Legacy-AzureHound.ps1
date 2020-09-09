@@ -1023,4 +1023,4 @@ function Get-AzureADSignInLogs3 {
     }
     return $results
 }
-Invoke-AzureHound
+
