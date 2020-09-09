@@ -101,12 +101,12 @@ function Invoke-AzureHound {
     
     $Coll = @()
     # Get tenants:
-    $Tenant.value | ForEach-Object {
-        $TenantObj = $_
+    $Tenant | ForEach-Object {
+        $TenantX = $_
 
         $Current = New-Object PSObject
-        $Current | Add-Member Noteproperty 'ObjectId' $TenantObj.Id
-        $Current | Add-Member NoteProperty 'DisplayName' $TenantObj.DisplayName
+        $Current | Add-Member Noteproperty 'ObjectId' $TenantX.Id
+        $Current | Add-Member NoteProperty 'DisplayName' $TenantX.DisplayName
 
         $Coll += $Current
     }
@@ -263,13 +263,14 @@ function Invoke-AzureHound {
         $Members = $MembersObj.value
     	
         ForEach ($Member in $Members) {
+            $datatype = $Member.'@odata.type'
             $AZGroupMember = New-Object PSObject
             $AZGroupMember | Add-Member Noteproperty 'GroupName' $Group.DisplayName
             $AZGroupMember | Add-Member Noteproperty 'GroupID' $GroupID
             $AZGroupMember | Add-Member Noteproperty 'GroupOnPremID' $Group.OnPremisesSecurityIdentifier
             $AZGroupMember | Add-Member Noteproperty 'MemberName' $Member.DisplayName
             $AZGroupMember | Add-Member Noteproperty 'MemberID' $Member.ID
-            $AZGroupMember | Add-Member Noteproperty 'MemberType' $Member.ObjectType
+            $AZGroupMember | Add-Member Noteproperty 'MemberType' $datatype.split('.')[-1]
             $AZGroupMember | Add-Member Noteproperty 'MemberOnPremID' $Member.OnPremisesSecurityIdentifier
             $Coll += $AZGroupMember
         }
@@ -489,19 +490,17 @@ function Invoke-AzureHound {
         $RoleId = $Role.ID
     	$RoleMembersObj = Invoke-RestMethod -Headers $Headers -Uri "https://graph.microsoft.com/beta/directoryRoles/$RoleId/members"
         $RoleMembers = $RoleMembersObj.Value
-    	
         ForEach ($Member in $RoleMembers) {
-    	
+    	    $datatype = $Member.'@odata.type'
             $RoleMembership = New-Object PSObject
             $RoleMembership | Add-Member Noteproperty 'MemberName' $Member.DisplayName
             $RoleMembership | Add-Member Noteproperty 'MemberID' $Member.ID
             $RoleMembership | Add-Member Noteproperty 'MemberOnPremID' $Member.OnPremisesSecurityIdentifier
             $RoleMembership | Add-Member Noteproperty 'MemberUPN' $Member.UserPrincipalName
-            $RoleMembership | Add-Member Noteproperty 'MemberType' $Member.ObjectType
+            $RoleMembership | Add-Member Noteproperty 'MemberType' $datatype.split('.')[-1]
             $RoleMembership | Add-Member Noteproperty 'RoleID' $Role.RoleTemplateId  	  	
-        }
-
-        $RoleMembership
+            $RoleMembership
+        }      
     }
    
     $UsersAndRoles = ForEach ($User in $Results) {
@@ -563,18 +562,18 @@ function Invoke-AzureHound {
     $PrivilegedAuthenticationAdminRights = ForEach ($User in $PrivilegedAuthenticationAdmins) {
         $TargetUsers = $UserRoles | ? { $_.UserUPN -NotMatch "#EXT#" }
         # Privileged authentication admins can reset ALL user passwords, including global admins
-        # You can't reset passwords for external users, which have "#EXT#" added to their UPN
-        		
+        # You can't reset passwords for external users, which have "#EXT#" added to their UPN       
         ForEach ($TargetUser in $TargetUsers) {
-        		
+        	
+            	
             $PWResetRight = New-Object PSObject
         		
             $PWResetRight | Add-Member Noteproperty 'UserName' $User.UserName
             $PWResetRight | Add-Member Noteproperty 'UserID' $User.UserID
             $PWResetRight | Add-Member Noteproperty 'UserOnPremID' $User.UserOnPremID
             $PWResetRight | Add-Member Noteproperty 'TargetUserName' $TargetUser.UserName
-            $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.UserID
-            $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.UserOnPremID
+            $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.UserId
+            $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.UserOnPremId
         		
             $PWResetRight
         }
@@ -585,9 +584,9 @@ function Invoke-AzureHound {
             $PWResetRight | Add-Member Noteproperty 'UserName' $User.UserName
             $PWResetRight | Add-Member Noteproperty 'UserID' $User.UserID
             $PWResetRight | Add-Member Noteproperty 'UserOnPremID' $User.UserOnPremID
-            $PWResetRight | Add-Member Noteproperty 'TargetUserName' $TargetUser.DisplayName
+            $PWResetRight | Add-Member Noteproperty 'TargetUserName' $TargetUser.displayName
             $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.Id
-            $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.OnPremisesSecurityIdentifier
+            $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.onPremisesSecurityIdentifier
         		
             $PWResetRight
         }
@@ -607,8 +606,8 @@ function Invoke-AzureHound {
             $PWResetRight | Add-Member Noteproperty 'UserID' $User.UserID
             $PWResetRight | Add-Member Noteproperty 'UserOnPremID' $User.UserOnPremID
             $PWResetRight | Add-Member Noteproperty 'TargetUserName' $TargetUser.UserName
-            $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.UserID
-            $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.UserOnPremID
+            $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.UserId
+            $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.UserOnPremId
     		
             $PWResetRight
         }
@@ -619,9 +618,9 @@ function Invoke-AzureHound {
             $PWResetRight | Add-Member Noteproperty 'UserName' $User.UserName
             $PWResetRight | Add-Member Noteproperty 'UserID' $User.UserID
             $PWResetRight | Add-Member Noteproperty 'UserOnPremID' $User.UserOnPremID
-            $PWResetRight | Add-Member Noteproperty 'TargetUserName' $TargetUser.DisplayName
+            $PWResetRight | Add-Member Noteproperty 'TargetUserName' $TargetUser.displayName
             $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.Id
-            $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.OnPremisesSecurityIdentifier
+            $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.onPremisesSecurityIdentifier
     		
             $PWResetRight
         }
@@ -640,8 +639,8 @@ function Invoke-AzureHound {
             $PWResetRight | Add-Member Noteproperty 'UserID' $User.UserID
             $PWResetRight | Add-Member Noteproperty 'UserOnPremID' $User.UserOnPremID
             $PWResetRight | Add-Member Noteproperty 'TargetUserName' $TargetUser.UserName
-            $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.UserID
-            $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.UserOnPremID
+            $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.UserId
+            $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.UserOnPremId
     		
             $PWResetRight
         }
@@ -652,9 +651,9 @@ function Invoke-AzureHound {
             $PWResetRight | Add-Member Noteproperty 'UserName' $User.UserName
             $PWResetRight | Add-Member Noteproperty 'UserID' $User.UserID
             $PWResetRight | Add-Member Noteproperty 'UserOnPremID' $User.UserOnPremID
-            $PWResetRight | Add-Member Noteproperty 'TargetUserName' $TargetUser.DisplayName
-            $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.ObjectId
-            $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.OnPremisesSecurityIdentifier
+            $PWResetRight | Add-Member Noteproperty 'TargetUserName' $TargetUser.displayName
+            $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.Id
+            $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.onPremisesSecurityIdentifier
     		
             $PWResetRight
         }
@@ -674,8 +673,8 @@ function Invoke-AzureHound {
             $PWResetRight | Add-Member Noteproperty 'UserID' $User.UserID
             $PWResetRight | Add-Member Noteproperty 'UserOnPremID' $User.UserOnPremID
             $PWResetRight | Add-Member Noteproperty 'TargetUserName' $TargetUser.UserName
-            $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.UserID
-            $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.UserOnPremID
+            $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.UserId
+            $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.UserOnPremId
     		
             $PWResetRight
         }
@@ -686,9 +685,9 @@ function Invoke-AzureHound {
             $PWResetRight | Add-Member Noteproperty 'UserName' $User.UserName
             $PWResetRight | Add-Member Noteproperty 'UserID' $User.UserID
             $PWResetRight | Add-Member Noteproperty 'UserOnPremID' $User.UserOnPremID
-            $PWResetRight | Add-Member Noteproperty 'TargetUserName' $TargetUser.DisplayName
-            $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.ObjectId
-            $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.OnPremisesSecurityIdentifier
+            $PWResetRight | Add-Member Noteproperty 'TargetUserName' $TargetUser.displayName
+            $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.Id
+            $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.onPremisesSecurityIdentifier
     		
             $PWResetRight
         }
@@ -708,8 +707,8 @@ function Invoke-AzureHound {
             $PWResetRight | Add-Member Noteproperty 'UserID' $User.UserID
             $PWResetRight | Add-Member Noteproperty 'UserOnPremID' $User.UserOnPremID
             $PWResetRight | Add-Member Noteproperty 'TargetUserName' $TargetUser.UserName
-            $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.UserID
-            $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.UserOnPremID
+            $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.UserId
+            $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.UserOnPremId
     		
             $PWResetRight
         }
@@ -720,9 +719,9 @@ function Invoke-AzureHound {
             $PWResetRight | Add-Member Noteproperty 'UserName' $User.UserName
             $PWResetRight | Add-Member Noteproperty 'UserID' $User.UserID
             $PWResetRight | Add-Member Noteproperty 'UserOnPremID' $User.UserOnPremID
-            $PWResetRight | Add-Member Noteproperty 'TargetUserName' $TargetUser.DisplayName
-            $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.ObjectId
-            $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.OnPremisesSecurityIdentifier
+            $PWResetRight | Add-Member Noteproperty 'TargetUserName' $TargetUser.displayName
+            $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.Id
+            $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.onPremisesSecurityIdentifier
     		
             $PWResetRight
         }
@@ -903,6 +902,7 @@ function Invoke-AzureHound {
 	
 #     $PrivilegedAuthenticationAdmins = $_ | ? { $_.RoleID -Contains '7be44c8a-adaf-4e2a-84d6-ab2649e08a13' }
 #     $PrivilegedAuthenticationAdmins
+
 Write-Host "Compressing files"
 Compress-Archive *.json -DestinationPath azurecollection.zip
 rm *.json
@@ -1023,3 +1023,4 @@ function Get-AzureADSignInLogs3 {
     }
     return $results
 }
+Invoke-AzureHound
