@@ -396,14 +396,14 @@ function Invoke-AzureHound {
             ForEach ($Role in $Roles) {
         	
                 $ControllerType = $Role.ObjectType
-        		
+        		$id = $Role.ObjectId
                 If ($ControllerType -eq "User") {
                     $Controller = Invoke-RestMethod -Headers $Headers -Uri "https://graph.microsoft.com/beta/users/$id"
                     $OnPremID = $Controller.value.OnPremisesSecurityIdentifier
                 }
         		
                 If ($ControllerType -eq "Group") {
-                    $Controller = Invoke-RestMethod -Headers $Headers -Uri "https://graph.microsoft.com/beta/groups/$id"
+                    $Controller = Invoke-RestMethod -Headers $Headers -Uri "https://graph.microsoft.com/beta/group/$id"
                     $OnPremID = $Controller.value.OnPremisesSecurityIdentifier
                 }
         	
@@ -413,7 +413,7 @@ function Invoke-AzureHound {
                 $KVPrivilege | Add-Member Noteproperty 'ControllerName' $Role.DisplayName
                 $KVPrivilege | Add-Member Noteproperty 'ControllerID' $Role.ObjectID
                 $KVPrivilege | Add-Member Noteproperty 'ControllerType' $Role.ObjectType
-                $KVPrivilege | Add-Member Noteproperty 'ControllerOnPremID' $OnPremID
+                $KVPrivilege | Add-Member Noteproperty 'ControllerOnPremID' $Controller.value.OnPremisesSecurityIdentifier
                 $KVPrivilege | Add-Member Noteproperty 'RoleName' $Role.RoleDefinitionName
                 $KVPrivilege | Add-Member Noteproperty 'RoleDefinitionId' $Role.RoleDefinitionId
         		
