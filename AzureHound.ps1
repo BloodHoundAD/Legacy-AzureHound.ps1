@@ -92,7 +92,7 @@ function Invoke-AzureHound {
         $CurrentGroup | Add-Member Noteproperty 'DisplayName' $Group.displayname
         $CurrentGroup | Add-Member Noteproperty 'OnPremisesSecurityIdentifier' $Group.OnPremisesSecurityIdentifier
         $CurrentGroup | Add-Member Noteproperty 'ObjectID' $Group.Id
-        $CurrentGroup | Add-Member Noteproperty 'TenantID' $TenantID 
+        $CurrentGroup | Add-Member Noteproperty 'TenantID' $TenantId
 		
         $Coll += $CurrentGroup
     }
@@ -210,8 +210,7 @@ function Invoke-AzureHound {
     
     $Coll = @()
     # Get devices and their owners
-    $uri = 'https://graph.microsoft.com/beta/devices'	
-    $DevicesObj = Invoke-RestMethod -Headers $Headers -Uri $uri
+    $DevicesObj = Invoke-RestMethod -Headers $Headers -Uri 'https://graph.microsoft.com/beta/devices'
     $Devices = $DevicesObj.value
     $Devices | ForEach-Object {
         $Device = $_    	
@@ -221,7 +220,8 @@ function Invoke-AzureHound {
         $AzureDeviceOwner = New-Object PSObject
         $AzureDeviceOwner | Add-Member Noteproperty 'DeviceDisplayname' $Device.Displayname
         $AzureDeviceOwner | Add-Member Noteproperty 'DeviceID' $Device.Id
-        $AzureDeviceOwner | Add-Member Noteproperty 'DeviceOS' $Device.DeviceOSType
+        $AzureDeviceOwner | Add-Member Noteproperty 'DeviceOS' $Device.operatingSystem
+        $AzureDeviceOwner | Add-Member Noteproperty 'DeviceOSVersion' $Device.operatingSystemVersion
         $AzureDeviceOwner | Add-Member Noteproperty 'OwnerDisplayName' $Owner.Displayname
         $AzureDeviceOwner | Add-Member Noteproperty 'OwnerID' $Owner.Id
         $AzureDeviceOwner | Add-Member Noteproperty 'OwnerType' $Owner.userType
@@ -240,13 +240,14 @@ function Invoke-AzureHound {
         $Owners = $OwnersObj.value
     	
         ForEach ($Owner in $Owners) {
+            $datatype = $Owner.'@odata.type'
             $AZGroupOwner = New-Object PSObject
             $AZGroupOwner | Add-Member Noteproperty 'GroupName' $Group.DisplayName
             $AZGroupOwner | Add-Member Noteproperty 'GroupID' $GroupID
             $AZGroupOwner | Add-Member Noteproperty 'GroupOnPremID' $Group.OnPremisesSecurityIdentifier
             $AZGroupOwner | Add-Member Noteproperty 'OwnerName' $Owner.DisplayName
             $AZGroupOwner | Add-Member Noteproperty 'OwnerID' $Owner.ID
-            $AZGroupOwner | Add-Member Noteproperty 'OwnerType' $Owner.ObjectType
+            $AZGroupOwner | Add-Member Noteproperty 'OwnerType' $datatype.split('.')[-1]
             $AZGroupOwner | Add-Member Noteproperty 'OwnerOnPremID' $Owner.OnPremisesSecurityIdentifier
             $Coll += $AZGroupOwner  
         }
@@ -1023,4 +1024,3 @@ function Get-AzureADSignInLogs3 {
     }
     return $results
 }
-
