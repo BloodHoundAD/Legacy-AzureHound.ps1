@@ -350,7 +350,7 @@ function Invoke-AzureHound {
             ForEach ($Role in $Roles) {
         	
                 $ControllerType = $Role.ObjectType
-        		$id = $Role.Id
+        		$id = $Role.ObjectId
                 If ($ControllerType -eq "User") {
                     $Controller = Invoke-RestMethod -Headers $Headers -Uri "https://graph.microsoft.com/beta/users/$id"
                     $OnPremID = $Controller.value.OnPremisesSecurityIdentifier
@@ -1024,3 +1024,4 @@ function Get-AzureADSignInLogs3 {
     }
     return $results
 }
+Invoke-AzureHound
