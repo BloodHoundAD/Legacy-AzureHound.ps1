@@ -1,5 +1,5 @@
 # AzureHound v 0.0.3
-# Author: Andy Robbins (@_wald0), Rohan Vazarkar (@cptjesus), Ryan Hausknecht (@haus3c)
+# Authors: Andy Robbins (@_wald0), Rohan Vazarkar (@cptjesus), Ryan Hausknecht (@haus3c)
 # Copyright: SpecterOps, Inc. 2020
 
 # Changelog:
@@ -1025,4 +1025,3 @@ function Get-AzureADSignInLogs3 {
     }
     return $results
 }
-Invoke-AzureHound
