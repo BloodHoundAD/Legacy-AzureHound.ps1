@@ -1,12 +1,11 @@
-# AzureHound v 0.0.3
-# Authors: Andy Robbins (@_wald0), Rohan Vazarkar (@cptjesus), Ryan Hausknecht (@haus3c)
+# AzureHound v 0.0.2
+# Author: Andy Robbins (@_wald0), Rohan Vazarkar (@cptjesus), Ryan Hausknecht (@haus3c)
 # Copyright: SpecterOps, Inc. 2020
 
 # Changelog:
 
 # 0.0.1 - Initial build
 # 0.0.2 - Changed all enumeration to include -All $True flag
-# 0.0.3 - Now outputting JSON and collecting via Graph API
 
 function Get-PrincipalMap {
 	$Headers = Get-AzureGraphToken
@@ -33,7 +32,9 @@ function Get-AzureGraphToken
     $Headers
 }
 
+$date = get-date -f yyyyMMddhhmmss
 function New-Output($Coll, $Type) {
+
     Write-Host "Writing output for $($Type)"
     $Count = $Coll.Count
     if ($Count = $null) {
@@ -46,16 +47,21 @@ function New-Output($Coll, $Type) {
     $Meta | Add-Member Noteproperty 'version' 4
     $Output | Add-Member Noteproperty 'meta' $Meta
     $Output | Add-Member Noteproperty 'data' $Coll
-    $FileName = "az" + $($Type) + ".json"
+    $FileName = $date + "-" + "az" + $($Type) + ".json"
     $Output | ConvertTo-Json | Out-File -Encoding "utf8" -FilePath $FileName
 }
 
 function Invoke-AzureHound {
+    [CmdletBinding()]
+    Param(
+    [Parameter(Mandatory=$False)][String]$TenantID = $null)
 
     $Headers = Get-AzureGraphToken
+
+    If(!$TenantID){
     $TenantObj = Invoke-RestMethod -Headers $Headers -Uri 'https://graph.microsoft.com/beta/organization'
     $Tenant = $TenantObj.value
-    $TenantId = $Tenant.id
+    $TenantId = $Tenant.id}
     
     # Get users:
     $Coll = @()
@@ -152,7 +158,7 @@ function Invoke-AzureHound {
     }
 
     New-Output -Coll $Coll -Type "resourcegroups"
-    
+
     $Coll = @()
     # Get VMs
     $Subscriptions | ForEach-Object {
@@ -848,7 +854,7 @@ function Invoke-AzureHound {
     # $PrivilegedRoleAdminRights | Export-CSV -NoTypeInformation privroleadminrights.csv
 
 
-
+    $Coll = @()
     # Get app owners
     $AzureADApplicationObj = Invoke-RestMethod -Headers $Headers -Uri 'https://graph.microsoft.com/beta/applications'
     $AzureADApplication = $AzureADApplicationObj.value 
@@ -856,57 +862,41 @@ function Invoke-AzureHound {
 
         $AppId = $_.AppId
         $ObjectId = $_.Id
-
         $AppOwnersObj = Invoke-RestMethod -Headers $Headers -Uri "https://graph.microsoft.com/beta/applications/$ObjectId/owners"
-        $AppOwners = $AppOwnersObj.value
-	
+        $AppOwners = $AppOwnersObj.value	
+
         ForEach ($Owner in $AppOwners) {
-	    
+	        $type = $Owner.'@odata.type'
             $AzureAppOwner = New-Object PSObject
-		
+		    
             $AzureAppOwner | Add-Member Noteproperty 'AppId' $AppId
             $AzureAppOwner | Add-Member Noteproperty 'AppObjectId' $ObjectId
             $AzureAppOwner | Add-Member Noteproperty 'OwnerID' $Owner.Id
-            $AzureAppOwner | Add-Member Noteproperty 'OwnerType' $Owner.ObjectType
+            $AzureAppOwner | Add-Member Noteproperty 'OwnerType' $type.split('.')[-1]
             $AzureAppOwner | Add-Member Noteproperty 'OwnerOnPremID' $Owner.OnPremisesSecurityIdentifier
-		
-            $AzureAppOwner
-		
-        }
+            $AzureAppOwner | Add-Member Noteproperty 'OwnerName' $Owner.displayName		
+            $Coll += $AzureAppOwner
+		    
+        }   
     }
+    New-Output -Coll $Coll -Type "applicationowners"
 
-# Get MS-PIM role configurations
+    $Coll = @()
+    # Get App Service Principals
+    Get-AzADApplication | Get-AzADServicePrincipal | %{
+	$AppToSPO = New-Object PSObject
+	$AppToSPO | Add-Member Noteproperty 'AppId' $_.ApplicationId
+    $AppToSPO | Add-Member Noteproperty 'AppName' $_.DisplayName
+	$AppToSPO | Add-Member Noteproperty 'ServicePrincipalId' $_.Id
+	$AppToSPO | Add-Member Noteproperty 'ServicePrincipalType' $_.ObjectType
+	$Coll += $AppToSPO
+    }
+    New-Output -Coll $Coll -Type "apptospo"
 
-# Get-AzureADMSPrivilegedRoleAssignment -ProviderId 'aadRoles' -ResourceId '3f06a216-e798-47d3-9b06-31482aa5a648' | % {
-#     $PrivilegedRoleAdmins = $_ | ? { $_.RoleDefinitionId -Contains 'e8611ab8-c189-46e8-94e1-60213ab1f814' }
-#     $PrivilegedRoleAdmins
-	
-#     $GlobalAdmins = $_ | ? { $_.RoleDefinitionId -Contains '62e90394-69f5-4237-9190-012177145e10' }
-#     $GlobalAdmins
-	
-#     $IntuneAdmins = $_ | ? { $_.RoleID -Contains '3a2c62db-5318-420d-8d74-23affee5d9d5' }
-#     $IntuneAdmins
-	
-#     $GroupsAdmins = $_ | ? { $_.RoleID -Contains 'fdd7a751-b60b-444a-984c-02652fe8fa1c' }
-#     $GroupsAdmins
-	
-#     $UserAccountAdmins = $_ | ? { $_.RoleID -Contains 'fe930be7-5e62-47db-91af-98c3a49a38b1' }
-#     $UserAccountAdmins
-	
-#     $PasswordAdmins = $_ | ? { $_.RoleID -Contains '966707d0-3269-4727-9be2-8c3a10f19b9d' }
-#     $PasswordAdmins
-	
-#     $HelpdeskAdmins = $_ | ? { $_.RoleID -Contains '729827e3-9c14-49f7-bb1b-9608f156bbb8' }
-#     $HelpdeskAdmins
-	
-#     $AuthenticationAdmins = $_ | ? { $_.RoleID -Contains 'c4e39bd9-1100-46d3-8c65-fb160da0071f' }
-#     $AuthenticationAdmins
-	
-#     $PrivilegedAuthenticationAdmins = $_ | ? { $_.RoleID -Contains '7be44c8a-adaf-4e2a-84d6-ab2649e08a13' }
-#     $PrivilegedAuthenticationAdmins
 
 Write-Host "Compressing files"
-Compress-Archive *.json -DestinationPath azurecollection.zip
+$name = $date + "-azurecollection"
+Compress-Archive *.json -DestinationPath "$name.zip"
 rm *.json
 	
 }
