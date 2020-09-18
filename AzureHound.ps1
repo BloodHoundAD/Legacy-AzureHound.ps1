@@ -48,13 +48,31 @@ function New-Output($Coll, $Type) {
     $Output | Add-Member Noteproperty 'meta' $Meta
     $Output | Add-Member Noteproperty 'data' $Coll
     $FileName = $date + "-" + "az" + $($Type) + ".json"
-    $Output | ConvertTo-Json | Out-File -Encoding "utf8" -FilePath $FileName
+    If($OutputDirectory){
+        $path = $OutputDirectory+$FileName
+        $Output | ConvertTo-Json | Out-File -Encoding "utf8" -FilePath $path
+    }
+    else{
+        $Output | ConvertTo-Json | Out-File -Encoding "utf8" -FilePath $FileName
+    }    
 }
 
 function Invoke-AzureHound {
     [CmdletBinding()]
     Param(
-    [Parameter(Mandatory=$False)][String]$TenantID = $null)
+    [Parameter(Mandatory=$False)][String]$TenantID = $null,
+    [Parameter(Mandatory=$False)][String]$OutputDirectory = $null,
+    [Parameter(Mandatory=$False)][Switch]$InstallAz = $null)
+
+    $Modules = Get-InstalledModule
+    if ($Modules.Name -notcontains 'Az.Accounts'){ 
+      Write-Host "AzureHound requires the 'Az' module, please install by using the -InstallAz switch." -ForegroundColor Red
+      exit
+    }
+
+    if ($InstallAz){
+      Install-Module -Name Az -AllowClobber
+    }
 
     $Headers = Get-AzureGraphToken
 
@@ -298,11 +316,9 @@ function Invoke-AzureHound {
     Get-AZSubscription | ForEach-Object {
         Select-AzSubscription -SubscriptionID $_.Id | Out-Null
         Get-AzVm | ForEach-Object {
-            $VM = $_
-        	
+            $VM = $_        	
             $VMID = $VM.id
-            $VMGuid = $VM.VmId
-        	
+            $VMGuid = $VM.VmId       	
             $Roles = Get-AzRoleAssignment -scope $VMID
         	
             ForEach ($Role in $Roles) {
@@ -310,32 +326,26 @@ function Invoke-AzureHound {
                 $ControllerType = $Role.ObjectType
         		$id = $Role.Id
                 If ($ControllerType -eq "User") {
-                    $Controller = Invoke-RestMethod -Headers $Headers -Uri "https://graph.microsoft.com/beta/users/$id"
-                    $OnPremID = $Controller.value.OnPremisesSecurityIdentifier
+                    $Controller = Invoke-RestMethod -Headers $Headers -Uri "https://graph.microsoft.com/beta/users/$id"                    
                 }
         		
                 If ($ControllerType -eq "Group") {
-                    $Controller = Invoke-RestMethod -Headers $Headers -Uri "https://graph.microsoft.com/beta/groups/$id"
-                    $OnPremID = $Controller.value.OnPremisesSecurityIdentifier
+                    $Controller = Invoke-RestMethod -Headers $Headers -Uri "https://graph.microsoft.com/beta/groups/$id"                   
                 }
-
-				}
-					
         	
-                $VMPrivilege = New-Object PSObject
-        		
+                $VMPrivilege = New-Object PSObject       		
                 $VMPrivilege | Add-Member Noteproperty 'VMID' $VMGuid
                 $VMPrivilege | Add-Member Noteproperty 'ControllerName' $Role.DisplayName
                 $VMPrivilege | Add-Member Noteproperty 'ControllerID' $Role.ObjectID
                 $VMPrivilege | Add-Member Noteproperty 'ControllerType' $Role.ObjectType
-                $VMPrivilege | Add-Member Noteproperty 'ControllerOnPremID' $OnPremID
+                $VMPrivilege | Add-Member Noteproperty 'ControllerOnPremID' $Controller.OnPremisesSecurityIdentifier
                 $VMPrivilege | Add-Member Noteproperty 'RoleName' $Role.RoleDefinitionName
                 $VMPrivilege | Add-Member Noteproperty 'RoleDefinitionId' $Role.RoleDefinitionId
         		
                 $Coll += $VMPrivilege
             }
         }
-    
+    }
     New-Output -Coll $Coll -Type "vmpermissions"
     
     # Inbound permissions against resource group
@@ -360,12 +370,10 @@ function Invoke-AzureHound {
         		$id = $Role.ObjectId
                 If ($ControllerType -eq "User") {
                     $Controller = Invoke-RestMethod -Headers $Headers -Uri "https://graph.microsoft.com/beta/users/$id"
-                    $OnPremID = $Controller.value.OnPremisesSecurityIdentifier
                 }
         		
                 If ($ControllerType -eq "Group") {
                     $Controller = Invoke-RestMethod -Headers $Headers -Uri "https://graph.microsoft.com/beta/groups/$id"
-                    $OnPremID = $Controller.value.OnPremisesSecurityIdentifier
                 }
         	
                 $RGPrivilege = New-Object PSObject        		
@@ -373,7 +381,7 @@ function Invoke-AzureHound {
                 $RGPrivilege | Add-Member Noteproperty 'ControllerName' $Role.DisplayName
                 $RGPrivilege | Add-Member Noteproperty 'ControllerID' $Role.ObjectID
                 $RGPrivilege | Add-Member Noteproperty 'ControllerType' $Role.ObjectType
-                $RGPrivilege | Add-Member Noteproperty 'ControllerOnPremID' $OnPremID
+                $RGPrivilege | Add-Member Noteproperty 'ControllerOnPremID' $Controller.OnPremisesSecurityIdentifier
                 $RGPrivilege | Add-Member Noteproperty 'RoleName' $Role.RoleDefinitionName
                 $RGPrivilege | Add-Member Noteproperty 'RoleDefinitionId' $Role.RoleDefinitionId
         		
@@ -406,12 +414,10 @@ function Invoke-AzureHound {
         		$id = $Role.ObjectId
                 If ($ControllerType -eq "User") {
                     $Controller = Invoke-RestMethod -Headers $Headers -Uri "https://graph.microsoft.com/beta/users/$id"
-                    $OnPremID = $Controller.value.OnPremisesSecurityIdentifier
                 }
         		
                 If ($ControllerType -eq "Group") {
-                    $Controller = Invoke-RestMethod -Headers $Headers -Uri "https://graph.microsoft.com/beta/group/$id"
-                    $OnPremID = $Controller.value.OnPremisesSecurityIdentifier
+                    $Controller = Invoke-RestMethod -Headers $Headers -Uri "https://graph.microsoft.com/beta/group/$id" 
                 }
         	
                 $KVPrivilege = New-Object PSObject
@@ -420,7 +426,7 @@ function Invoke-AzureHound {
                 $KVPrivilege | Add-Member Noteproperty 'ControllerName' $Role.DisplayName
                 $KVPrivilege | Add-Member Noteproperty 'ControllerID' $Role.ObjectID
                 $KVPrivilege | Add-Member Noteproperty 'ControllerType' $Role.ObjectType
-                $KVPrivilege | Add-Member Noteproperty 'ControllerOnPremID' $Controller.value.OnPremisesSecurityIdentifier
+                $KVPrivilege | Add-Member Noteproperty 'ControllerOnPremID' $Controller.OnPremisesSecurityIdentifier
                 $KVPrivilege | Add-Member Noteproperty 'RoleName' $Role.RoleDefinitionName
                 $KVPrivilege | Add-Member Noteproperty 'RoleDefinitionId' $Role.RoleDefinitionId
         		
@@ -512,18 +518,14 @@ function Invoke-AzureHound {
     }
    
     $UsersAndRoles = ForEach ($User in $Results) {
-        $CurrentUser = $User.MemberID
-        $CurrentUserName = $User.MemberName
-        $CurrentUserRoles = ($Results | ? { $_.MemberID -eq $CurrentUser }).RoleID
-        $CurrentUserUPN = $User.MemberUPN
-        $CurrentUserOnPremID = $User.MemberOnPremID
-    	
+
         $UserAndRoles = New-Object PSObject
-        $UserAndRoles | Add-Member Noteproperty 'UserName' $CurrentUserName
-        $UserAndRoles | Add-Member Noteproperty 'UserID' $CurrentUser
-        $UserAndRoles | Add-Member Noteproperty 'UserOnPremID' $CurrentUserOnPremID
-        $UserAndRoles | Add-Member Noteproperty 'UserUPN' $CurrentUserUPN
-        $UserAndRoles | Add-Member Noteproperty 'RoleID' $CurrentUserRoles
+        $UserAndRoles | Add-Member Noteproperty 'UserName' $User.MemberName
+        $UserAndRoles | Add-Member Noteproperty 'UserID' $User.MemberID
+        $UserAndRoles | Add-Member Noteproperty 'UserOnPremID'  $User.MemberOnPremID
+        $UserAndRoles | Add-Member Noteproperty 'UserUPN'  $User.MemberUPN
+        $UserAndRoles | Add-Member Noteproperty 'UserType' $User.MemberType
+        $UserAndRoles | Add-Member Noteproperty 'RoleID' ($Results | ? { $_.MemberID -eq $User.MemberID }).RoleID
     	
         $UserAndRoles
     }
@@ -881,18 +883,104 @@ function Invoke-AzureHound {
     }
     New-Output -Coll $Coll -Type "applicationowners"
 
-    $Coll = @()
-    # Get App Service Principals
-    Get-AzADApplication | Get-AzADServicePrincipal | %{
-	$AppToSPO = New-Object PSObject
-	$AppToSPO | Add-Member Noteproperty 'AppId' $_.ApplicationId
-    $AppToSPO | Add-Member Noteproperty 'AppName' $_.DisplayName
-	$AppToSPO | Add-Member Noteproperty 'ServicePrincipalId' $_.Id
-	$AppToSPO | Add-Member Noteproperty 'ServicePrincipalType' $_.ObjectType
-	$Coll += $AppToSPO
+   $SPOS = Get-AzADApplication | Get-AzADServicePrincipal | %{
+	$ServicePrincipals = New-Object PSObject
+	$ServicePrincipals | Add-Member Noteproperty 'AppId' $_.ApplicationId
+    $ServicePrincipals | Add-Member Noteproperty 'AppName' $_.DisplayName
+	$ServicePrincipals | Add-Member Noteproperty 'ServicePrincipalId' $_.Id
+	$ServicePrincipals | Add-Member Noteproperty 'ServicePrincipalType' $_.ObjectType
+    $ServicePrincipals
     }
-    New-Output -Coll $Coll -Type "apptospo"
+    
+        
+    $PrincipalRoles = ForEach ($User in $Results){
+        $SPRoles = New-Object PSObject
+        If ($User.MemberType -match 'servicePrincipal')
+        {
+         $SPRoles = New-Object PSObject
+         $SPRoles | Add-Member NoteProperty 'RoleID' $User.RoleID
+         $SPRoles | Add-Member NoteProperty 'SPId' $User.MemberID
+         $SPRoles
+        }
+    }
+    
+    
+    $SPswithoutRoles = $SPOS | Where-Object {$_.ServicePrincipalID -notin $PrincipalRoles.SPId}
 
+
+	$Coll = @()
+	# Application Admins - Can create new secrets for application service principals
+	# Write to appadmins.json
+    $AppAdmins = $UserRoles | Where-Object {$_.RoleID -match '9b895d92-2cd3-44c7-9d02-a6ac2d5ea5c3'}
+    $SPsWithAzureAppAdminRole = $UserRoles | Where-Object {$_.RoleID -match '9b895d92-2cd3-44c7-9d02-a6ac2d5ea5c3' -and $_.UserType -match 'serviceprincipal' }
+    $AppsWithAppAdminRole = ForEach ($SP in $SPsWithAzureAppAdminRole) {
+	    $AppWithRole = $SPOS | ?{$_.ServicePrincipalID -Match $SP.UserID}
+		$AppWithRole
+	}
+	$AppAdminsRights = ForEach ($Principal in $AppAdmins) {
+    	    
+        $TargetApps = $AppsWithAppAdminRole
+    		
+        ForEach ($TargetApp in $TargetApps) {
+		    $AppRight = New-Object PSObject
+			
+			$AppRight | Add-Member Noteproperty 'AppAdminID' $Principal.UserID
+			$AppRight | Add-Member Noteproperty 'AppAdminType' $Principal.UserType
+			$AppRight | Add-Member Noteproperty 'TargetAppID' $TargetApp.AppID
+			
+			$Coll += $AppRight
+			
+		}
+		
+		ForEach ($TargetApp in $SPswithoutRoles) {
+		    $AppRight = New-Object PSObject
+			
+			$AppRight | Add-Member Noteproperty 'AppAdminID' $Principal.UserID
+			$AppRight | Add-Member Noteproperty 'AppAdminType' $Principal.UserType
+			$AppRight | Add-Member Noteproperty 'TargetAppID' $TargetApp.AppId
+			
+			$Coll += $AppRight
+
+		}
+	}
+    New-Output -Coll $Coll -Type "applicationadmins"
+    
+	
+	# Cloud Application Admins - Can create new secrets for application service principals
+	# Write to cloudappadmins.json
+    $Coll = @()
+    $CloudAppAdmins = $UserRoles | Where-Object {$_.RoleID -match '158c047a-c907-4556-b7ef-446551a6b5f7'}
+    $SPsWithAzureAppAdminRole = $UserRoles | Where-Object {$_.RoleID -match '158c047a-c907-4556-b7ef-446551a6b5f7' -and $_.UserType -match 'serviceprincipal' }
+	$AppsWithAppAdminRole = ForEach ($SP in $SPsWithAzureAppAdminRole) {
+	    $AppWithRole = $SPOS | ?{$_.ServicePrincipalID -Match $SP.UserID}
+		$AppWithRole
+	}
+	$CloudAppAdminRights = ForEach ($Principal in $AppAdmins) {
+    	    
+        $TargetApps = $AppsWithAppAdminRole
+    		
+        ForEach ($TargetApp in $TargetApps) {
+		    $AppRight = New-Object PSObject
+			
+			$AppRight | Add-Member Noteproperty 'AppAdminID' $Principal.UserID
+			$AppRight | Add-Member Noteproperty 'AppAdminType' $Principal.UserType
+			$AppRight | Add-Member Noteproperty 'TargetAppID' $TargetApp.AppID
+			
+			$Coll += $AppRight
+			
+		}
+		
+		ForEach ($TargetApp in $SPswithoutRoles) {
+		    $AppRight = New-Object PSObject
+			
+			$AppRight | Add-Member Noteproperty 'AppAdminID' $Principal.UserID
+			$AppRight | Add-Member Noteproperty 'AppAdminType' $Principal.UserType
+			$AppRight | Add-Member Noteproperty 'TargetAppID' $TargetApp.AppId
+			
+			$Coll += $AppRight
+		}
+	}
+    New-Output -Coll $Coll -Type "cloudappadmins"
 
 Write-Host "Compressing files"
 $name = $date + "-azurecollection"
