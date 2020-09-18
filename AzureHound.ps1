@@ -926,6 +926,7 @@ function Invoke-AzureHound {
 			
 			$AppRight | Add-Member Noteproperty 'AppAdminID' $Principal.UserID
 			$AppRight | Add-Member Noteproperty 'AppAdminType' $Principal.UserType
+            $AppRight | Add-Member Noteproperty 'AppAdminOnPremID' $Principal.UserOnPremID
 			$AppRight | Add-Member Noteproperty 'TargetAppID' $TargetApp.AppID
 			
 			$Coll += $AppRight
@@ -937,6 +938,7 @@ function Invoke-AzureHound {
 			
 			$AppRight | Add-Member Noteproperty 'AppAdminID' $Principal.UserID
 			$AppRight | Add-Member Noteproperty 'AppAdminType' $Principal.UserType
+            $AppRight | Add-Member Noteproperty 'AppAdminOnPremID' $Principal.UserOnPremID
 			$AppRight | Add-Member Noteproperty 'TargetAppID' $TargetApp.AppId
 			
 			$Coll += $AppRight
@@ -964,6 +966,7 @@ function Invoke-AzureHound {
 			
 			$AppRight | Add-Member Noteproperty 'AppAdminID' $Principal.UserID
 			$AppRight | Add-Member Noteproperty 'AppAdminType' $Principal.UserType
+            $AppRight | Add-Member Noteproperty 'AppAdminOnPremID' $Principal.UserOnPremID
 			$AppRight | Add-Member Noteproperty 'TargetAppID' $TargetApp.AppID
 			
 			$Coll += $AppRight
@@ -975,6 +978,7 @@ function Invoke-AzureHound {
 			
 			$AppRight | Add-Member Noteproperty 'AppAdminID' $Principal.UserID
 			$AppRight | Add-Member Noteproperty 'AppAdminType' $Principal.UserType
+            $AppRight | Add-Member Noteproperty 'AppAdminOnPremID' $Principal.UserOnPremID
 			$AppRight | Add-Member Noteproperty 'TargetAppID' $TargetApp.AppId
 			
 			$Coll += $AppRight
