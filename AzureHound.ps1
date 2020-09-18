@@ -1,11 +1,6 @@
-# AzureHound v 0.0.2
-# Author: Andy Robbins (@_wald0), Rohan Vazarkar (@cptjesus), Ryan Hausknecht (@haus3c)
+# AzureHound Beta
+# Authors: Andy Robbins (@_wald0), Rohan Vazarkar (@cptjesus), Ryan Hausknecht (@haus3c)
 # Copyright: SpecterOps, Inc. 2020
-
-# Changelog:
-
-# 0.0.1 - Initial build
-# 0.0.2 - Changed all enumeration to include -All $True flag
 
 function Get-PrincipalMap {
 	$Headers = Get-AzureGraphToken
