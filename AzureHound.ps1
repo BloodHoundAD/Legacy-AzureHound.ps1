@@ -526,7 +526,8 @@ function Invoke-AzureHound {
     }
     $UserRoles = $UsersAndRoles | Sort-Object -Unique -Property UserName
     $UsersWithRoles = $UserRoles.UserID
-    $UsersWithoutRoles = $AzureADUsers | ? { $_.ID -NotIn $UsersWithRoles }
+	$AzureADUsers = Invoke-RestMethod -Headers $Headers -Uri 'https://graph.microsoft.com/beta/users'
+    $UsersWithoutRoles = $AzureADUsers.value | ? { $_.ID -NotIn $UsersWithRoles }
     
     $AuthAdminsList = @(
         'c4e39bd9-1100-46d3-8c65-fb160da0071f',
@@ -565,7 +566,7 @@ function Invoke-AzureHound {
     
     $PrivilegedAuthenticationAdmins = $UserRoles | ? { $_.RoleID -Contains '7be44c8a-adaf-4e2a-84d6-ab2649e08a13' }
     $PrivilegedAuthenticationAdminRights = ForEach ($User in $PrivilegedAuthenticationAdmins) {
-        $TargetUsers = $UserRoles | ? { $_.UserUPN -NotMatch "#EXT#" }
+        $TargetUsers = $UserRoles | ? { $_.UserUPN -NotMatch "#EXT#" -And $_.UserType -Match "user"}
         # Privileged authentication admins can reset ALL user passwords, including global admins
         # You can't reset passwords for external users, which have "#EXT#" added to their UPN       
         ForEach ($TargetUser in $TargetUsers) {
@@ -600,7 +601,7 @@ function Invoke-AzureHound {
     $AuthenticationAdmins = $UserRoles | ? { $_.RoleID -Contains 'c4e39bd9-1100-46d3-8c65-fb160da0071f' }
     $AuthAdminsRights = ForEach ($User in $AuthenticationAdmins) {
     	    
-        $TargetUsers = $UserRoles | ? { $AuthAdminsList -Contains $_.RoleID } | ? { $_.UserUPN -NotMatch "#EXT#" }
+        $TargetUsers = $UserRoles | ? { $AuthAdminsList -Contains $_.RoleID } | ? { $_.UserUPN -NotMatch "#EXT#" -And $_.UserType -Match "user" }
         # You can't reset passwords for external users, which have "#EXT#" added to their UPN
     		
         ForEach ($TargetUser in $TargetUsers) {
@@ -634,7 +635,7 @@ function Invoke-AzureHound {
     $HelpdeskAdmins = $UserRoles | ? { $_.RoleID -Contains '729827e3-9c14-49f7-bb1b-9608f156bbb8' }
     $HelpdeskAdminsRights = ForEach ($User in $HelpdeskAdmins) {
     	    
-        $TargetUsers = $UserRoles | ? { $HelpdeskAdminsList -Contains $_.RoleID } | ? { $_.UserUPN -NotMatch "#EXT#" }
+        $TargetUsers = $UserRoles | ? { $HelpdeskAdminsList -Contains $_.RoleID } | ? { $_.UserUPN -NotMatch "#EXT#" -And $_.UserType -Match "user" }
     		
         ForEach ($TargetUser in $TargetUsers) {
     		
@@ -668,7 +669,7 @@ function Invoke-AzureHound {
     $PasswordAdmins = $UserRoles | ? { $_.RoleID -Contains '966707d0-3269-4727-9be2-8c3a10f19b9d' }
     $PasswordAdminsRights = ForEach ($User in $PasswordAdmins) {
     	    
-        $TargetUsers = $UserRoles | ? { $PasswordAdminList -Contains $_.RoleID } | ? { $_.UserUPN -NotMatch "#EXT#" }
+        $TargetUsers = $UserRoles | ? { $PasswordAdminList -Contains $_.RoleID } | ? { $_.UserUPN -NotMatch "#EXT#" -And $_.UserType -Match "user"}
     		
         ForEach ($TargetUser in $TargetUsers) {
     		
@@ -702,7 +703,7 @@ function Invoke-AzureHound {
     $UserAccountAdmins = $UserRoles | ? { $_.RoleID -Contains 'fe930be7-5e62-47db-91af-98c3a49a38b1' }
     $UserAccountAdminsRights = ForEach ($User in $UserAccountAdmins) {
     	    
-        $TargetUsers = $UserRoles | ? { $UserAdminList -Contains $_.RoleID } | ? { $_.UserUPN -NotMatch "#EXT#" }
+        $TargetUsers = $UserRoles | ? { $UserAdminList -Contains $_.RoleID } | ? { $_.UserUPN -NotMatch "#EXT#" -And $_.UserType -Match "user" }
     		
         ForEach ($TargetUser in $TargetUsers) {
     		
