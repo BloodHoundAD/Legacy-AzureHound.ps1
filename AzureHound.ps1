@@ -859,6 +859,7 @@ function Invoke-AzureHound {
     $AzureADApplication | ForEach-Object {
 
         $AppId = $_.AppId
+		$AppName = $_.displayName
         $ObjectId = $_.Id
         $AppOwnersObj = Invoke-RestMethod -Headers $Headers -Uri "https://graph.microsoft.com/beta/applications/$ObjectId/owners"
         $AppOwners = $AppOwnersObj.value	
@@ -869,6 +870,7 @@ function Invoke-AzureHound {
 		    
             $AzureAppOwner | Add-Member Noteproperty 'AppId' $AppId
             $AzureAppOwner | Add-Member Noteproperty 'AppObjectId' $ObjectId
+			$AzureAppOwner | Add-Member Noteproperty 'AppName' $AppName
             $AzureAppOwner | Add-Member Noteproperty 'OwnerID' $Owner.Id
             $AzureAppOwner | Add-Member Noteproperty 'OwnerType' $type.split('.')[-1]
             $AzureAppOwner | Add-Member Noteproperty 'OwnerOnPremID' $Owner.OnPremisesSecurityIdentifier
