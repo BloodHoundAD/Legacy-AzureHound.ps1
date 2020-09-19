@@ -785,8 +785,8 @@ function Invoke-AzureHound {
         $GlobalAdminRight | Add-Member Noteproperty 'UserName' $User.UserName
         $GlobalAdminRight | Add-Member Noteproperty 'UserID' $User.UserID
         $GlobalAdminRight | Add-Member Noteproperty 'UserOnPremID' $User.UserOnPremID
+		$GlobalAdminRight | Add-Member Noteproperty 'UserType' $User.UserType
         $GlobalAdminRight | Add-Member Noteproperty 'TenantDisplayName' $Tenant.DisplayName
-        #$GlobalAdminRight | Add-Member Noteproperty 'TenantVerifiedDomains' $Tenants.VerifiedDomains
         $GlobalAdminRight | Add-Member Noteproperty 'TenantID' $Tenant.ID
     		
         $GlobalAdminRight
@@ -804,8 +804,8 @@ function Invoke-AzureHound {
         $PrivilegedRoleAdminRight | Add-Member Noteproperty 'UserName' $User.UserName
         $PrivilegedRoleAdminRight | Add-Member Noteproperty 'UserID' $User.UserID
         $PrivilegedRoleAdminRight | Add-Member Noteproperty 'UserOnPremID' $User.UserOnPremID
+		$PrivilegedRoleAdminRight | Add-Member Noteproperty 'UserType' $User.UserType
         $PrivilegedRoleAdminRight | Add-Member Noteproperty 'TenantDisplayName' $Tenant.DisplayName
-        #$PrivilegedRoleAdminRight | Add-Member Noteproperty 'TenantVerifiedDomains' $TenantDetails.VerifiedDomains
         $PrivilegedRoleAdminRight | Add-Member Noteproperty 'TenantID' $Tenant.ID
     		
         $PrivRoleColl += $PrivilegedRoleAdminRight
