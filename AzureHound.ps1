@@ -747,6 +747,7 @@ function Invoke-AzureHound {
     		
             $GroupRight | Add-Member Noteproperty 'UserName' $User.UserName
             $GroupRight | Add-Member Noteproperty 'UserID' $User.UserID
+			$GroupRight | Add-Member Noteproperty 'UserType' $User.UserType
             $GroupRight | Add-Member Noteproperty 'UserOnPremID' $User.UserOnPremID
             $GroupRight | Add-Member Noteproperty 'TargetGroupName' $TargetGroup.DisplayName
             $GroupRight | Add-Member Noteproperty 'TargetGroupID' $TargetGroup.ID
@@ -766,6 +767,7 @@ function Invoke-AzureHound {
     		
             $GroupRight | Add-Member Noteproperty 'UserName' $User.UserName
             $GroupRight | Add-Member Noteproperty 'UserID' $User.UserID
+			$GroupRight | Add-Member Noteproperty 'UserType' $User.UserType
             $GroupRight | Add-Member Noteproperty 'UserOnPremID' $User.UserOnPremID
             $GroupRight | Add-Member Noteproperty 'TargetGroupName' $TargetGroup.DisplayName
             $GroupRight | Add-Member Noteproperty 'TargetGroupID' $TargetGroup.ID
