@@ -877,6 +877,7 @@ function Invoke-AzureHound {
     }
     New-Output -Coll $Coll -Type "applicationowners" -Directory $OutputDirectory
 
+   $Coll = @()
    $SPOS = Get-AzADApplication | Get-AzADServicePrincipal | %{
 	$ServicePrincipals = New-Object PSObject
 	$ServicePrincipals | Add-Member Noteproperty 'AppId' $_.ApplicationId
@@ -885,6 +886,7 @@ function Invoke-AzureHound {
 	$ServicePrincipals | Add-Member Noteproperty 'ServicePrincipalType' $_.ObjectType
     $ServicePrincipals
     }
+    New-Output -Coll $Coll -Type "applicationtosp"
     
         
     $PrincipalRoles = ForEach ($User in $Results){
