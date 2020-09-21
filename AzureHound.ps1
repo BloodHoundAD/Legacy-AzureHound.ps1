@@ -980,11 +980,22 @@ function Invoke-AzureHound {
 	}
     New-Output -Coll $Coll -Type "cloudappadmins" -Directory $OutputDirectory
 
-Write-Host "Compressing files"
-$name = $date + "-azurecollection"
-Compress-Archive *.json -DestinationPath "$name.zip"
-rm *.json
-	
+    Write-Host "Compressing files"
+    $location = Get-Location
+    If($OutputDirectory.path -eq $location.path){
+        $name = $date + "-azurecollection"
+        $jsonpath = $OutputDirectory.Path + '\' + "*.json"
+        $destinationpath = $OutputDirectory.Path + '\' + "$name.zip"       
+        Compress-Archive $jsonpath -DestinationPath $destinationpath
+        rm $jsonpath
+    }
+    else{
+        $name = $date + "-azurecollection"
+        $jsonpath = $OutputDirectory + '\' + "*.json"
+        $destinationpath = $OutputDirectory + '\' + "$name.zip"
+        Compress-Archive $jsonpath -DestinationPath $destinationpath
+        rm $jsonpath
+    }
 }
 
 
@@ -1101,3 +1112,4 @@ function Get-AzureADSignInLogs3 {
     }
     return $results
 }
+Invoke-AzureHound
