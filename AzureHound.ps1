@@ -28,7 +28,7 @@ function Get-AzureGraphToken
 }
 
 $date = get-date -f yyyyMMddhhmmss
-function New-Output($Coll, $Type) {
+function New-Output($Coll, $Type, $Directory) {
 
     Write-Host "Writing output for $($Type)"
     $Count = $Coll.Count
@@ -42,21 +42,15 @@ function New-Output($Coll, $Type) {
     $Meta | Add-Member Noteproperty 'version' 4
     $Output | Add-Member Noteproperty 'meta' $Meta
     $Output | Add-Member Noteproperty 'data' $Coll
-    $FileName = $date + "-" + "az" + $($Type) + ".json"
-    If($OutputDirectory){
-        $path = $OutputDirectory+$FileName
-        $Output | ConvertTo-Json | Out-File -Encoding "utf8" -FilePath $path
-    }
-    else{
-        $Output | ConvertTo-Json | Out-File -Encoding "utf8" -FilePath $FileName
-    }    
+    $FileName = $Directory + '\' + $date + "-" + "az" + $($Type) + ".json" 
+    $Output | ConvertTo-Json | Out-File -Encoding "utf8" -FilePath $FileName   
 }
 
 function Invoke-AzureHound {
     [CmdletBinding()]
     Param(
     [Parameter(Mandatory=$False)][String]$TenantID = $null,
-    [Parameter(Mandatory=$False)][String]$OutputDirectory = $null,
+    [Parameter(Mandatory=$False)][String]$OutputDirectory = $(Get-Location),[ValidateNotNullOrEmpty()]
     [Parameter(Mandatory=$False)][Switch]$InstallAz = $null)
 
     $Modules = Get-InstalledModule
@@ -98,7 +92,7 @@ function Invoke-AzureHound {
         $Coll += $CurrentUser
     }
 
-    New-Output -Coll $Coll -Type "users"
+    New-Output -Coll $Coll -Type "users" -Directory $OutputDirectory
       
     # Get groups:
     $Coll = @()
@@ -117,7 +111,7 @@ function Invoke-AzureHound {
         $Coll += $CurrentGroup
     }
 
-    New-Output -Coll $Coll -Type "groups"
+    New-Output -Coll $Coll -Type "groups" -Directory $OutputDirectory
     
     $Coll = @()
     # Get tenants:
@@ -131,7 +125,7 @@ function Invoke-AzureHound {
         $Coll += $Current
     }
 
-    New-Output -Coll $Coll -Type "tenants"
+    New-Output -Coll $Coll -Type "tenants" -Directory $OutputDirectory
 
     $Coll = @()  
     # Get subscriptions:
@@ -146,7 +140,7 @@ function Invoke-AzureHound {
         $Coll += $Sub
     }
 
-    New-Output -Coll $Coll -Type "subscriptions"
+    New-Output -Coll $Coll -Type "subscriptions" -Directory $OutputDirectory
     
     $Coll = @()
     # Get resource groups:
@@ -170,7 +164,7 @@ function Invoke-AzureHound {
         }
     }
 
-    New-Output -Coll $Coll -Type "resourcegroups"
+    New-Output -Coll $Coll -Type "resourcegroups" -Directory $OutputDirectory
 
     $Coll = @()
     # Get VMs
@@ -198,7 +192,7 @@ function Invoke-AzureHound {
         }
     }
 
-    New-Output -Coll $Coll -Type "vms"
+    New-Output -Coll $Coll -Type "vms" -Directory $OutputDirectory
     
     $Coll = @()
     # Get KeyVaults
@@ -226,7 +220,7 @@ function Invoke-AzureHound {
         }
     }
 
-    New-Output -Coll $Coll -Type "keyvaults"
+    New-Output -Coll $Coll -Type "keyvaults" -Directory $OutputDirectory
     
     $Coll = @()
     # Get devices and their owners
@@ -249,7 +243,7 @@ function Invoke-AzureHound {
         $Coll += $AzureDeviceOwner  
     }
 
-    New-Output -Coll $Coll -Type "devices"
+    New-Output -Coll $Coll -Type "devices" -Directory $OutputDirectory
     
     $Coll = @()
     # Get group owners
@@ -273,7 +267,7 @@ function Invoke-AzureHound {
         }
     }
 
-    New-Output -Coll $Coll -Type "groupowners"
+    New-Output -Coll $Coll -Type "groupowners" -Directory $OutputDirectory
     $Coll = @()
     
     # Get group members  
@@ -296,7 +290,7 @@ function Invoke-AzureHound {
             $Coll += $AZGroupMember
         }
     }
-    New-Output -Coll $Coll -Type "groupmembers"
+    New-Output -Coll $Coll -Type "groupmembers" -Directory $OutputDirectory
     
     # Inbound permissions against Virtual Machines
     # RoleDefinitionName 			RoleDefinitionId
@@ -341,7 +335,7 @@ function Invoke-AzureHound {
             }
         }
     }
-    New-Output -Coll $Coll -Type "vmpermissions"
+    New-Output -Coll $Coll -Type "vmpermissions" -Directory $OutputDirectory
     
     # Inbound permissions against resource group
     # RoleDefinitionName 			RoleDefinitionId
@@ -384,7 +378,7 @@ function Invoke-AzureHound {
             }
         }
     }
-    New-Output -Coll $Coll -Type "rgpermissions"
+    New-Output -Coll $Coll -Type "rgpermissions" -Directory $OutputDirectory
     
     # Inbound permissions against key vaults
     # RoleDefinitionName 			RoleDefinitionId
@@ -429,7 +423,7 @@ function Invoke-AzureHound {
             }
         }
     }
-    New-Output -Coll $Coll -Type "kvpermissions"
+    New-Output -Coll $Coll -Type "kvpermissions" -Directory $OutputDirectory
     
     $Coll = @()
     # KeyVault access policies
@@ -488,7 +482,7 @@ function Invoke-AzureHound {
             }
         }
     }
-    New-Output -Coll $Coll -Type "kvaccesspolicies"
+    New-Output -Coll $Coll -Type "kvaccesspolicies" -Directory $OutputDirectory
     
     # Abusable AZ Admin Roles
     $RoleObj = Invoke-RestMethod -Headers $Headers -Uri 'https://graph.microsoft.com/beta/directoryRoles'
@@ -829,7 +823,7 @@ function Invoke-AzureHound {
     $UserAccountAdminsRights | ForEach-Object {
         $Coll += $_
     }
-    New-Output -Coll $Coll -Type "pwresetrights"
+    New-Output -Coll $Coll -Type "pwresetrights" -Directory $OutputDirectory
     # $PrivilegedAuthenticationAdminRights | Export-CSV -NoTypeInformation -Append pwresetrights.csv
     # $AuthAdminsRights | Export-CSV -NoTypeInformation -Append pwresetrights.csv
     # $HelpdeskAdminsRights | Export-CSV -NoTypeInformation -Append pwresetrights.csv
@@ -843,12 +837,12 @@ function Invoke-AzureHound {
     $GroupsAdminsRights | ForEach-Object {
         $Coll += $_
     }
-    New-Output -Coll $Coll -Type "groupsrights"
+    New-Output -Coll $Coll -Type "groupsrights" -Directory $OutputDirectory
     # $IntuneAdminsRights | Export-CSV -NoTypeInformation -Append groupsrights.csv
     # $GroupsAdminsRights | Export-CSV -NoTypeInformation -Append groupsrights.csv
     
-    New-Output -Coll $GlobalAdminsRights -Type "globaladminrights"
-    New-Output -Coll $PrivRoleColl -Type "privroleadminrights"
+    New-Output -Coll $GlobalAdminsRights -Type "globaladminrights" -Directory $OutputDirectory
+    New-Output -Coll $PrivRoleColl -Type "privroleadminrights" -Directory $OutputDirectory
     
     # $GlobalAdminsRights | Export-CSV -NoTypeInformation globaladminrights.csv
     # $PrivilegedRoleAdminRights | Export-CSV -NoTypeInformation privroleadminrights.csv
@@ -881,7 +875,7 @@ function Invoke-AzureHound {
 		    
         }   
     }
-    New-Output -Coll $Coll -Type "applicationowners"
+    New-Output -Coll $Coll -Type "applicationowners" -Directory $OutputDirectory
 
    $SPOS = Get-AzADApplication | Get-AzADServicePrincipal | %{
 	$ServicePrincipals = New-Object PSObject
@@ -945,7 +939,7 @@ function Invoke-AzureHound {
 
 		}
 	}
-    New-Output -Coll $Coll -Type "applicationadmins"
+    New-Output -Coll $Coll -Type "applicationadmins" -Directory $OutputDirectory
     
 	
 	# Cloud Application Admins - Can create new secrets for application service principals
@@ -984,7 +978,7 @@ function Invoke-AzureHound {
 			$Coll += $AppRight
 		}
 	}
-    New-Output -Coll $Coll -Type "cloudappadmins"
+    New-Output -Coll $Coll -Type "cloudappadmins" -Directory $OutputDirectory
 
 Write-Host "Compressing files"
 $name = $date + "-azurecollection"
