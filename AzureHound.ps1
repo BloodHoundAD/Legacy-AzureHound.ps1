@@ -884,9 +884,9 @@ function Invoke-AzureHound {
     $ServicePrincipals | Add-Member Noteproperty 'AppName' $_.DisplayName
 	$ServicePrincipals | Add-Member Noteproperty 'ServicePrincipalId' $_.Id
 	$ServicePrincipals | Add-Member Noteproperty 'ServicePrincipalType' $_.ObjectType
-    $ServicePrincipals
+    $Coll += $ServicePrincipals
     }
-    New-Output -Coll $Coll -Type "applicationtosp"
+    New-Output -Coll $Coll -Type "applicationtosp" -Directory $OutputDirectory
     
         
     $PrincipalRoles = ForEach ($User in $Results){
