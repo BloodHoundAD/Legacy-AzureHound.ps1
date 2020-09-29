@@ -877,14 +877,16 @@ function Invoke-AzureHound {
     }
     New-Output -Coll $Coll -Type "applicationowners" -Directory $OutputDirectory
 
+   $Coll = @()
    $SPOS = Get-AzADApplication | Get-AzADServicePrincipal | %{
 	$ServicePrincipals = New-Object PSObject
 	$ServicePrincipals | Add-Member Noteproperty 'AppId' $_.ApplicationId
     $ServicePrincipals | Add-Member Noteproperty 'AppName' $_.DisplayName
 	$ServicePrincipals | Add-Member Noteproperty 'ServicePrincipalId' $_.Id
 	$ServicePrincipals | Add-Member Noteproperty 'ServicePrincipalType' $_.ObjectType
-    $ServicePrincipals
+    $Coll += $ServicePrincipals
     }
+    New-Output -Coll $Coll -Type "applicationtosp" -Directory $OutputDirectory
     
         
     $PrincipalRoles = ForEach ($User in $Results){
@@ -1112,4 +1114,3 @@ function Get-AzureADSignInLogs3 {
     }
     return $results
 }
-Invoke-AzureHound
