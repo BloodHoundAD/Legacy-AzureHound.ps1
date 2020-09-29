@@ -406,7 +406,7 @@ function Invoke-AzureHound {
                 }
         		
                 If ($ControllerType -eq "Group") {
-                    $Controller = Invoke-RestMethod -Headers $Headers -Uri "https://graph.microsoft.com/beta/group/$id" 
+                    $Controller = Invoke-RestMethod -Headers $Headers -Uri "https://graph.microsoft.com/beta/groups/$id" 
                 }
         	
                 $KVPrivilege = New-Object PSObject
