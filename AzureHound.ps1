@@ -72,44 +72,52 @@ function Invoke-AzureHound {
     
     # Get users:
     $Coll = @()
-	$AzureADUsersObj = Invoke-RestMethod -Headers $Headers -Uri 'https://graph.microsoft.com/beta/users' 
-    $AzureADUsers = $AzureADUsersObj.value
-    $AzureADUsers | ForEach-Object {
-        $User = $_		
-        $CurrentUser = New-Object PSObject		
-        $CurrentUser | Add-Member Noteproperty 'DisplayName' $User.displayname
-        $CurrentUser | Add-Member Noteproperty 'UserPrincipalName' $User.UserPrincipalName
-        $CurrentUser | Add-Member Noteproperty 'OnPremisesSecurityIdentifier' $User.OnPremisesSecurityIdentifier
-        $CurrentUser | Add-Member Noteproperty 'ObjectID' $User.Id
-        # if the current user is NOT an external user, add the tenantid property:
-        if ($User.UserPrincipalName -NotMatch "#EXT#") {
-            $CurrentUser | Add-Member Noteproperty 'TenantID' $TenantID
+    $UserURI = 'https://graph.microsoft.com/beta/users?$top=999'
+    Do
+    {
+	    $AzureADUsersObj = Invoke-RestMethod -Headers $Headers -Uri $UserURI
+        $AzureADUsers = $AzureADUsersObj.value
+        $AzureADUsers | ForEach-Object {
+            $User = $_		
+            $CurrentUser = New-Object PSObject		
+            $CurrentUser | Add-Member Noteproperty 'DisplayName' $User.displayname
+            $CurrentUser | Add-Member Noteproperty 'UserPrincipalName' $User.UserPrincipalName
+            $CurrentUser | Add-Member Noteproperty 'OnPremisesSecurityIdentifier' $User.OnPremisesSecurityIdentifier
+            $CurrentUser | Add-Member Noteproperty 'ObjectID' $User.Id
+            # if the current user is NOT an external user, add the tenantid property:
+            if ($User.UserPrincipalName -NotMatch "#EXT#") {
+                $CurrentUser | Add-Member Noteproperty 'TenantID' $TenantID
+            }
+            else {
+                $CurrentUser | Add-Member Noteproperty 'TenantID' $null
+            }		
+            $Coll += $CurrentUser
+            $UserURI = $AzureADUsersObj.'@odata.nextLink'
         }
-        else {
-            $CurrentUser | Add-Member Noteproperty 'TenantID' $null
-        }
-		
-        $Coll += $CurrentUser
-    }
-
+    }Until(!$AzureADUsersObj.'@odata.nextLink')
     New-Output -Coll $Coll -Type "users" -Directory $OutputDirectory
       
     # Get groups:
     $Coll = @()
-    $AzureADGroupsObj = Invoke-RestMethod -Headers $Headers -Uri 'https://graph.microsoft.com/beta/groups'
-    $AzureADGroups = $AzureADGroupsObj.value
-    $AzureADGroups | ForEach-Object {
-        $Group = $_
+    $GroupURI = 'https://graph.microsoft.com/beta/groups?$top=999'  
+    Do
+    { 
+        $AzureADGroupsObj = Invoke-RestMethod -Headers $Headers -Uri $GroupURI
+        $AzureADGroups = $AzureADGroupsObj.value
+        $AzureADGroups | ForEach-Object {
+            $Group = $_
 		
-        $CurrentGroup = New-Object PSObject
+            $CurrentGroup = New-Object PSObject
 		
-        $CurrentGroup | Add-Member Noteproperty 'DisplayName' $Group.displayname
-        $CurrentGroup | Add-Member Noteproperty 'OnPremisesSecurityIdentifier' $Group.OnPremisesSecurityIdentifier
-        $CurrentGroup | Add-Member Noteproperty 'ObjectID' $Group.Id
-        $CurrentGroup | Add-Member Noteproperty 'TenantID' $TenantId
-		
-        $Coll += $CurrentGroup
-    }
+            $CurrentGroup | Add-Member Noteproperty 'DisplayName' $Group.displayname
+            $CurrentGroup | Add-Member Noteproperty 'OnPremisesSecurityIdentifier' $Group.OnPremisesSecurityIdentifier
+            $CurrentGroup | Add-Member Noteproperty 'ObjectID' $Group.Id
+            $CurrentGroup | Add-Member Noteproperty 'TenantID' $TenantId
+            $Coll += $CurrentGroup
+            $GroupURI = $AzureADGroupsObj.'@odata.nextLink'
+            }
+   
+    }Until (!$AzureADGroupsObj.'@odata.nextLink')
 
     New-Output -Coll $Coll -Type "groups" -Directory $OutputDirectory
     
@@ -224,24 +232,29 @@ function Invoke-AzureHound {
     
     $Coll = @()
     # Get devices and their owners
-    $DevicesObj = Invoke-RestMethod -Headers $Headers -Uri 'https://graph.microsoft.com/beta/devices'
-    $Devices = $DevicesObj.value
-    $Devices | ForEach-Object {
-        $Device = $_    	
-        $DeviceId = $Device.id
-        $OwnerData = Invoke-RestMethod -Headers $Headers -Uri "https://graph.microsoft.com/beta/devices/$DeviceId/registeredOwners"
-        $Owner = $OwnerData.Value
-        $AzureDeviceOwner = New-Object PSObject
-        $AzureDeviceOwner | Add-Member Noteproperty 'DeviceDisplayname' $Device.Displayname
-        $AzureDeviceOwner | Add-Member Noteproperty 'DeviceID' $Device.Id
-        $AzureDeviceOwner | Add-Member Noteproperty 'DeviceOS' $Device.operatingSystem
-        $AzureDeviceOwner | Add-Member Noteproperty 'DeviceOSVersion' $Device.operatingSystemVersion
-        $AzureDeviceOwner | Add-Member Noteproperty 'OwnerDisplayName' $Owner.Displayname
-        $AzureDeviceOwner | Add-Member Noteproperty 'OwnerID' $Owner.Id
-        $AzureDeviceOwner | Add-Member Noteproperty 'OwnerType' $Owner.userType
-        $AzureDeviceOwner | Add-Member Noteproperty 'OwnerOnPremID' $Owner.OnPremisesSecurityIdentifier
-        $Coll += $AzureDeviceOwner  
-    }
+    $DeviceURI = 'https://graph.microsoft.com/beta/devices?$top=999'
+    Do
+    {
+        $DevicesObj = Invoke-RestMethod -Headers $Headers -Uri $DeviceURI
+        $Devices = $DevicesObj.value
+        $Devices | ForEach-Object {
+            $Device = $_    	
+            $DeviceId = $Device.id
+            $OwnerData = Invoke-RestMethod -Headers $Headers -Uri "https://graph.microsoft.com/beta/devices/$DeviceId/registeredOwners"
+            $Owner = $OwnerData.Value
+            $AzureDeviceOwner = New-Object PSObject
+            $AzureDeviceOwner | Add-Member Noteproperty 'DeviceDisplayname' $Device.Displayname
+            $AzureDeviceOwner | Add-Member Noteproperty 'DeviceID' $Device.Id
+            $AzureDeviceOwner | Add-Member Noteproperty 'DeviceOS' $Device.operatingSystem
+            $AzureDeviceOwner | Add-Member Noteproperty 'DeviceOSVersion' $Device.operatingSystemVersion
+            $AzureDeviceOwner | Add-Member Noteproperty 'OwnerDisplayName' $Owner.Displayname
+            $AzureDeviceOwner | Add-Member Noteproperty 'OwnerID' $Owner.Id
+            $AzureDeviceOwner | Add-Member Noteproperty 'OwnerType' $Owner.userType
+            $AzureDeviceOwner | Add-Member Noteproperty 'OwnerOnPremID' $Owner.OnPremisesSecurityIdentifier
+            $Coll += $AzureDeviceOwner 
+            $DeviceURI = $DevicesObj.'@odata.nextLink' 
+        }
+    }Until (!$DevicesObj.'@odata.nextLink') 
 
     New-Output -Coll $Coll -Type "devices" -Directory $OutputDirectory
     
