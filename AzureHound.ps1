@@ -3,17 +3,14 @@
 # Copyright: SpecterOps, Inc. 2020
 
 function Get-PrincipalMap {
-	$Headers = Get-AzureGraphToken
-	$AzureADUsers = Invoke-RestMethod -Headers $Headers -Uri 'https://graph.microsoft.com/beta/users'
-    $PrincipalMap = @{}
-    $AzureADUsers.value | % {
-        $PrincipalMap.add($_.id, $_.OnPremisesSecurityIdentifier)
-    }
-    $AzureADGroups = Invoke-RestMethod -Headers $Headers -Uri 'https://graph.microsoft.com/beta/groups'
-    $AzureADGroups.value | % {
-        $PrincipalMap.add($_.id, $_.OnPremisesSecurityIdentifier)
-    }
 
+    $PrincipalMap = @{}
+    Get-AzureADUser -All $True | % {
+        $PrincipalMap.add($_.objectid, $_.OnPremisesSecurityIdentifier)
+    }
+    Get-AzureADGroup -All $True | % {
+        $PrincipalMap.add($_.objectid, $_.OnPremisesSecurityIdentifier)
+    }
     $PrincipalMap
 }
 
@@ -29,7 +26,7 @@ function Get-AzureGraphToken
 
 $date = get-date -f yyyyMMddhhmmss
 function New-Output($Coll, $Type, $Directory) {
-
+    
     Write-Host "Writing output for $($Type)"
     $Count = $Coll.Count
     if ($Count = $null) {
@@ -51,16 +48,36 @@ function Invoke-AzureHound {
     Param(
     [Parameter(Mandatory=$False)][String]$TenantID = $null,
     [Parameter(Mandatory=$False)][String]$OutputDirectory = $(Get-Location),[ValidateNotNullOrEmpty()]
-    [Parameter(Mandatory=$False)][Switch]$InstallAz = $null)
+    [Parameter(Mandatory=$False)][Switch]$Install = $null)
 
     $Modules = Get-InstalledModule
-    if ($Modules.Name -notcontains 'Az.Accounts'){ 
-      Write-Host "AzureHound requires the 'Az' module, please install by using the -InstallAz switch." -ForegroundColor Red
+    if ($Modules.Name -notcontains 'Az.Accounts' -and $Modules.Name -notcontains 'AzureAD'){ 
+      Write-Host "AzureHound requires the 'Az' and 'Azure AD PowerShell module, please install by using the -Install switch." -ForegroundColor Red
       exit
     }
 
-    if ($InstallAz){
+    if ($Install){
       Install-Module -Name Az -AllowClobber
+      Install-module -Name AzureADPreview -AllowClobber
+    }
+    #Login Check
+    $APSUser = Get-AzContext *>&1 
+    if ($APSUser -eq $null){
+        Connect-AzAccount
+        $APSUser = Get-AzContext *>&1
+        if ($APSUser -eq $null){
+            Read-Host -Prompt "Login via Az PS Module failed."
+            exit
+            }
+    }
+    $AADUser = Get-AzureADTenantDetail *>&1 
+    if ($AADUser -eq $null){
+        Connect-AzureAD
+        $AADUser = Get-AzureADTenantDetail *>&1 
+        if ($AADUser -eq $null){
+            Read-Host -Prompt "Login via AzureAD PS Module failed."
+            exit
+            }
     }
 
     $Headers = Get-AzureGraphToken
@@ -69,66 +86,55 @@ function Invoke-AzureHound {
     $TenantObj = Invoke-RestMethod -Headers $Headers -Uri 'https://graph.microsoft.com/beta/organization'
     $Tenant = $TenantObj.value
     $TenantId = $Tenant.id}
-    
+
+    $Coll = @()
     # Get users:
-    $Coll = @()
-    $UserURI = 'https://graph.microsoft.com/beta/users?$top=999'
-    Do
-    {
-	    $AzureADUsersObj = Invoke-RestMethod -Headers $Headers -Uri $UserURI
-        $AzureADUsers = $AzureADUsersObj.value
-        $AzureADUsers | ForEach-Object {
-            $User = $_		
-            $CurrentUser = New-Object PSObject		
-            $CurrentUser | Add-Member Noteproperty 'DisplayName' $User.displayname
-            $CurrentUser | Add-Member Noteproperty 'UserPrincipalName' $User.UserPrincipalName
-            $CurrentUser | Add-Member Noteproperty 'OnPremisesSecurityIdentifier' $User.OnPremisesSecurityIdentifier
-            $CurrentUser | Add-Member Noteproperty 'ObjectID' $User.Id
-            # if the current user is NOT an external user, add the tenantid property:
-            if ($User.UserPrincipalName -NotMatch "#EXT#") {
-                $CurrentUser | Add-Member Noteproperty 'TenantID' $TenantID
-            }
-            else {
-                $CurrentUser | Add-Member Noteproperty 'TenantID' $null
-            }		
-            $Coll += $CurrentUser
-            $UserURI = $AzureADUsersObj.'@odata.nextLink'
+    Get-AzureADUser -All $True | ForEach-Object {
+        $User = $_
+		
+        $CurrentUser = New-Object PSObject
+		
+        $CurrentUser | Add-Member Noteproperty 'DisplayName' $User.displayname
+        $CurrentUser | Add-Member Noteproperty 'UserPrincipalName' $User.UserPrincipalName
+        $CurrentUser | Add-Member Noteproperty 'OnPremisesSecurityIdentifier' $User.OnPremisesSecurityIdentifier
+        $CurrentUser | Add-Member Noteproperty 'ObjectID' $User.ObjectID
+        # if the current user is NOT an external user, add the tenantid property:
+        if ($User.UserPrincipalName -NotMatch "#EXT#") {
+            $CurrentUser | Add-Member Noteproperty 'TenantID' $TenantID
         }
-    }Until(!$AzureADUsersObj.'@odata.nextLink')
+        else {
+            $CurrentUser | Add-Member Noteproperty 'TenantID' $null
+        }
+		
+        $Coll += $CurrentUser
+    }
     New-Output -Coll $Coll -Type "users" -Directory $OutputDirectory
-      
+
+    $Coll = @()  
     # Get groups:
-    $Coll = @()
-    $GroupURI = 'https://graph.microsoft.com/beta/groups?$top=999'  
-    Do
-    { 
-        $AzureADGroupsObj = Invoke-RestMethod -Headers $Headers -Uri $GroupURI
-        $AzureADGroups = $AzureADGroupsObj.value
-        $AzureADGroups | ForEach-Object {
-            $Group = $_
+    Get-AzureADGroup -All $True | ForEach-Object {
+        $Group = $_
 		
-            $CurrentGroup = New-Object PSObject
+        $CurrentGroup = New-Object PSObject
 		
-            $CurrentGroup | Add-Member Noteproperty 'DisplayName' $Group.displayname
-            $CurrentGroup | Add-Member Noteproperty 'OnPremisesSecurityIdentifier' $Group.OnPremisesSecurityIdentifier
-            $CurrentGroup | Add-Member Noteproperty 'ObjectID' $Group.Id
-            $CurrentGroup | Add-Member Noteproperty 'TenantID' $TenantId
-            $Coll += $CurrentGroup
-            $GroupURI = $AzureADGroupsObj.'@odata.nextLink'
-            }
-   
-    }Until (!$AzureADGroupsObj.'@odata.nextLink')
+        $CurrentGroup | Add-Member Noteproperty 'DisplayName' $Group.displayname
+        $CurrentGroup | Add-Member Noteproperty 'OnPremisesSecurityIdentifier' $Group.OnPremisesSecurityIdentifier
+        $CurrentGroup | Add-Member Noteproperty 'ObjectID' $Group.ObjectID
+        $CurrentGroup | Add-Member Noteproperty 'TenantID' $TenantID
+		
+        $Coll += $CurrentGroup
+    }
 
     New-Output -Coll $Coll -Type "groups" -Directory $OutputDirectory
     
     $Coll = @()
     # Get tenants:
-    $Tenant | ForEach-Object {
-        $TenantX = $_
+    Get-AzureADTenantDetail | ForEach-Object {
+        $Tenant = $_
 
         $Current = New-Object PSObject
-        $Current | Add-Member Noteproperty 'ObjectId' $TenantX.Id
-        $Current | Add-Member NoteProperty 'DisplayName' $TenantX.DisplayName
+        $Current | Add-Member Noteproperty 'ObjectId' $Tenant.ObjectId
+        $Current | Add-Member NoteProperty 'DisplayName' $Tenant.DisplayName
 
         $Coll += $Current
     }
@@ -231,74 +237,63 @@ function Invoke-AzureHound {
     New-Output -Coll $Coll -Type "keyvaults" -Directory $OutputDirectory
     
     $Coll = @()
-    # Get devices and their owners
-    $DeviceURI = 'https://graph.microsoft.com/beta/devices?$top=999'
-    Do
-    {
-        $DevicesObj = Invoke-RestMethod -Headers $Headers -Uri $DeviceURI
-        $Devices = $DevicesObj.value
-        $Devices | ForEach-Object {
-            $Device = $_    	
-            $DeviceId = $Device.id
-            $OwnerData = Invoke-RestMethod -Headers $Headers -Uri "https://graph.microsoft.com/beta/devices/$DeviceId/registeredOwners"
-            $Owner = $OwnerData.Value
-            $AzureDeviceOwner = New-Object PSObject
-            $AzureDeviceOwner | Add-Member Noteproperty 'DeviceDisplayname' $Device.Displayname
-            $AzureDeviceOwner | Add-Member Noteproperty 'DeviceID' $Device.Id
-            $AzureDeviceOwner | Add-Member Noteproperty 'DeviceOS' $Device.operatingSystem
-            $AzureDeviceOwner | Add-Member Noteproperty 'DeviceOSVersion' $Device.operatingSystemVersion
-            $AzureDeviceOwner | Add-Member Noteproperty 'OwnerDisplayName' $Owner.Displayname
-            $AzureDeviceOwner | Add-Member Noteproperty 'OwnerID' $Owner.Id
-            $AzureDeviceOwner | Add-Member Noteproperty 'OwnerType' $Owner.userType
-            $AzureDeviceOwner | Add-Member Noteproperty 'OwnerOnPremID' $Owner.OnPremisesSecurityIdentifier
-            $Coll += $AzureDeviceOwner 
-            $DeviceURI = $DevicesObj.'@odata.nextLink' 
-        }
-    }Until (!$DevicesObj.'@odata.nextLink') 
+    # Get devices and their owners   
+    Get-AzureADDevice -All $True | ForEach-Object {
+        $Device = $_
+    	
+        $Owner = Get-AzureADDeviceRegisteredOwner -ObjectID $Device.ObjectID
+    	
+        $AzureDeviceOwner = New-Object PSObject
+        $AzureDeviceOwner | Add-Member Noteproperty 'DeviceDisplayname' $Device.Displayname
+        $AzureDeviceOwner | Add-Member Noteproperty 'DeviceID' $Device.ObjectID
+        $AzureDeviceOwner | Add-Member Noteproperty 'DeviceOS' $Device.DeviceOSType
+        $AzureDeviceOwner | Add-Member Noteproperty 'OwnerDisplayName' $Owner.Displayname
+        $AzureDeviceOwner | Add-Member Noteproperty 'OwnerID' $Owner.ObjectID
+        $AzureDeviceOwner | Add-Member Noteproperty 'OwnerType' $Owner.ObjectType
+        $AzureDeviceOwner | Add-Member Noteproperty 'OwnerOnPremID' $Owner.OnPremisesSecurityIdentifier
+        $Coll += $AzureDeviceOwner
+    }
 
     New-Output -Coll $Coll -Type "devices" -Directory $OutputDirectory
     
     $Coll = @()
     # Get group owners
-    $AzureADGroups | ForEach-Object {
+    $AADGroups = Get-AzureADGroup -All $True *>&1
+    $AADGroups| ForEach-Object {
         $Group = $_
-        $GroupID = $_.ID
-        $OwnersObj = Invoke-RestMethod -Headers $Headers -Uri "https://graph.microsoft.com/beta/groups/$GroupId/owners"
-        $Owners = $OwnersObj.value
+        $GroupID = $_.ObjectID
+        $Owners = Get-AzureADGroupOwner -ObjectId "$GroupID"
     	
         ForEach ($Owner in $Owners) {
-            $datatype = $Owner.'@odata.type'
             $AZGroupOwner = New-Object PSObject
             $AZGroupOwner | Add-Member Noteproperty 'GroupName' $Group.DisplayName
             $AZGroupOwner | Add-Member Noteproperty 'GroupID' $GroupID
             $AZGroupOwner | Add-Member Noteproperty 'GroupOnPremID' $Group.OnPremisesSecurityIdentifier
             $AZGroupOwner | Add-Member Noteproperty 'OwnerName' $Owner.DisplayName
-            $AZGroupOwner | Add-Member Noteproperty 'OwnerID' $Owner.ID
-            $AZGroupOwner | Add-Member Noteproperty 'OwnerType' $datatype.split('.')[-1]
+            $AZGroupOwner | Add-Member Noteproperty 'OwnerID' $Owner.ObjectID
+            $AZGroupOwner | Add-Member Noteproperty 'OwnerType' $Owner.ObjectType
             $AZGroupOwner | Add-Member Noteproperty 'OwnerOnPremID' $Owner.OnPremisesSecurityIdentifier
-            $Coll += $AZGroupOwner  
-        }
+            $Coll += $AZGroupOwner   
+        }	
     }
 
     New-Output -Coll $Coll -Type "groupowners" -Directory $OutputDirectory
-    $Coll = @()
-    
-    # Get group members  
-    $AzureADGroups | ForEach-Object {
+
+    $Coll = @() 
+    # Get group members     
+    $AADGroups | ForEach-Object {
         $Group = $_
-        $GroupID = $_.ID
-        $MembersObj = Invoke-RestMethod -Headers $Headers -Uri "https://graph.microsoft.com/beta/groups/$GroupID/members"
-        $Members = $MembersObj.value
+        $GroupID = $_.ObjectID
+        $Members = Get-AzureADGroupMember -ObjectId "$GroupID"
     	
         ForEach ($Member in $Members) {
-            $datatype = $Member.'@odata.type'
             $AZGroupMember = New-Object PSObject
             $AZGroupMember | Add-Member Noteproperty 'GroupName' $Group.DisplayName
             $AZGroupMember | Add-Member Noteproperty 'GroupID' $GroupID
             $AZGroupMember | Add-Member Noteproperty 'GroupOnPremID' $Group.OnPremisesSecurityIdentifier
             $AZGroupMember | Add-Member Noteproperty 'MemberName' $Member.DisplayName
-            $AZGroupMember | Add-Member Noteproperty 'MemberID' $Member.ID
-            $AZGroupMember | Add-Member Noteproperty 'MemberType' $datatype.split('.')[-1]
+            $AZGroupMember | Add-Member Noteproperty 'MemberID' $Member.ObjectID
+            $AZGroupMember | Add-Member Noteproperty 'MemberType' $Member.ObjectType
             $AZGroupMember | Add-Member Noteproperty 'MemberOnPremID' $Member.OnPremisesSecurityIdentifier
             $Coll += $AZGroupMember
         }
@@ -315,32 +310,37 @@ function Invoke-AzureHound {
     # Virtual Machine Contributor	9980e02c-c2be-4d73-94e8-173b1dc7cf3c
     
     $Coll = @()
-    Get-AZSubscription | ForEach-Object {
+    $Subscriptions | ForEach-Object {
         Select-AzSubscription -SubscriptionID $_.Id | Out-Null
         Get-AzVm | ForEach-Object {
-            $VM = $_        	
+            $VM = $_
+        	
             $VMID = $VM.id
-            $VMGuid = $VM.VmId       	
+            $VMGuid = $VM.VmId
+        	
             $Roles = Get-AzRoleAssignment -scope $VMID
         	
             ForEach ($Role in $Roles) {
         	
                 $ControllerType = $Role.ObjectType
-        		$id = $Role.Id
+        		
                 If ($ControllerType -eq "User") {
-                    $Controller = Invoke-RestMethod -Headers $Headers -Uri "https://graph.microsoft.com/beta/users/$id"                    
+                    $Controller = Get-AzureADUser -ObjectID $Role.ObjectID
+                    $OnPremID = $Controller.OnPremisesSecurityIdentifier
                 }
         		
                 If ($ControllerType -eq "Group") {
-                    $Controller = Invoke-RestMethod -Headers $Headers -Uri "https://graph.microsoft.com/beta/groups/$id"                   
+                    $Controller = Get-AzureADGroup -ObjectID $Role.ObjectID
+                    $OnPremID = $Controller.OnPremisesSecurityIdentifier
                 }
         	
-                $VMPrivilege = New-Object PSObject       		
+                $VMPrivilege = New-Object PSObject
+        		
                 $VMPrivilege | Add-Member Noteproperty 'VMID' $VMGuid
                 $VMPrivilege | Add-Member Noteproperty 'ControllerName' $Role.DisplayName
                 $VMPrivilege | Add-Member Noteproperty 'ControllerID' $Role.ObjectID
                 $VMPrivilege | Add-Member Noteproperty 'ControllerType' $Role.ObjectType
-                $VMPrivilege | Add-Member Noteproperty 'ControllerOnPremID' $Controller.OnPremisesSecurityIdentifier
+                $VMPrivilege | Add-Member Noteproperty 'ControllerOnPremID' $OnPremID
                 $VMPrivilege | Add-Member Noteproperty 'RoleName' $Role.RoleDefinitionName
                 $VMPrivilege | Add-Member Noteproperty 'RoleDefinitionId' $Role.RoleDefinitionId
         		
@@ -356,7 +356,7 @@ function Invoke-AzureHound {
     # Owner							8e3af657-a8ff-443c-a75c-2fe8c4bcb635
     # User Access Administrator		18d7d88d-d35e-4fb5-a5c3-7773c20a72d9
     $Coll = @()
-    Get-AZSubscription | ForEach-Object {
+    $Subscriptions | ForEach-Object {
         Select-AzSubscription -SubscriptionID $_.Id | Out-Null
 		
         Get-AzResourceGroup | ForEach-Object {
@@ -369,21 +369,24 @@ function Invoke-AzureHound {
             ForEach ($Role in $Roles) {
         	
                 $ControllerType = $Role.ObjectType
-        		$id = $Role.ObjectId
+        		
                 If ($ControllerType -eq "User") {
-                    $Controller = Invoke-RestMethod -Headers $Headers -Uri "https://graph.microsoft.com/beta/users/$id"
+                    $Controller = Get-AzureADUser -ObjectID $Role.ObjectID
+                    $OnPremID = $Controller.OnPremisesSecurityIdentifier
                 }
         		
                 If ($ControllerType -eq "Group") {
-                    $Controller = Invoke-RestMethod -Headers $Headers -Uri "https://graph.microsoft.com/beta/groups/$id"
+                    $Controller = Get-AzureADGroup -ObjectID $Role.ObjectID
+                    $OnPremID = $Controller.OnPremisesSecurityIdentifier
                 }
         	
-                $RGPrivilege = New-Object PSObject        		
+                $RGPrivilege = New-Object PSObject
+        		
                 $RGPrivilege | Add-Member Noteproperty 'RGID' $RGID
                 $RGPrivilege | Add-Member Noteproperty 'ControllerName' $Role.DisplayName
                 $RGPrivilege | Add-Member Noteproperty 'ControllerID' $Role.ObjectID
                 $RGPrivilege | Add-Member Noteproperty 'ControllerType' $Role.ObjectType
-                $RGPrivilege | Add-Member Noteproperty 'ControllerOnPremID' $Controller.OnPremisesSecurityIdentifier
+                $RGPrivilege | Add-Member Noteproperty 'ControllerOnPremID' $OnPremID
                 $RGPrivilege | Add-Member Noteproperty 'RoleName' $Role.RoleDefinitionName
                 $RGPrivilege | Add-Member Noteproperty 'RoleDefinitionId' $Role.RoleDefinitionId
         		
@@ -401,7 +404,7 @@ function Invoke-AzureHound {
     # User Access Administrator		18d7d88d-d35e-4fb5-a5c3-7773c20a72d9
     # Key Vaults
     $Coll = @()
-    Get-AZSubscription | ForEach-Object {
+    $Subscriptions | ForEach-Object {
         Select-AzSubscription -SubscriptionID $_.Id | Out-Null
         Get-AzKeyVault | ForEach-Object {
             $KeyVault = $_
@@ -413,13 +416,15 @@ function Invoke-AzureHound {
             ForEach ($Role in $Roles) {
         	
                 $ControllerType = $Role.ObjectType
-        		$id = $Role.ObjectId
+        		
                 If ($ControllerType -eq "User") {
-                    $Controller = Invoke-RestMethod -Headers $Headers -Uri "https://graph.microsoft.com/beta/users/$id"
+                    $Controller = Get-AzureADUser -ObjectID $Role.ObjectID
+                    $OnPremID = $Controller.OnPremisesSecurityIdentifier
                 }
         		
                 If ($ControllerType -eq "Group") {
-                    $Controller = Invoke-RestMethod -Headers $Headers -Uri "https://graph.microsoft.com/beta/groups/$id" 
+                    $Controller = Get-AzureADGroup -ObjectID $Role.ObjectID
+                    $OnPremID = $Controller.OnPremisesSecurityIdentifier
                 }
         	
                 $KVPrivilege = New-Object PSObject
@@ -428,7 +433,7 @@ function Invoke-AzureHound {
                 $KVPrivilege | Add-Member Noteproperty 'ControllerName' $Role.DisplayName
                 $KVPrivilege | Add-Member Noteproperty 'ControllerID' $Role.ObjectID
                 $KVPrivilege | Add-Member Noteproperty 'ControllerType' $Role.ObjectType
-                $KVPrivilege | Add-Member Noteproperty 'ControllerOnPremID' $Controller.OnPremisesSecurityIdentifier
+                $KVPrivilege | Add-Member Noteproperty 'ControllerOnPremID' $OnPremID
                 $KVPrivilege | Add-Member Noteproperty 'RoleName' $Role.RoleDefinitionName
                 $KVPrivilege | Add-Member Noteproperty 'RoleDefinitionId' $Role.RoleDefinitionId
         		
@@ -440,7 +445,7 @@ function Invoke-AzureHound {
     
     $Coll = @()
     # KeyVault access policies
-    Get-AZSubscription | ForEach-Object {
+    $Subscriptions | ForEach-Object {
         Select-AzSubscription -SubscriptionID $_.Id | Out-Null
         Get-AzKeyVault | ForEach-Object {
             $KeyVault = $_
@@ -498,43 +503,47 @@ function Invoke-AzureHound {
     New-Output -Coll $Coll -Type "kvaccesspolicies" -Directory $OutputDirectory
     
     # Abusable AZ Admin Roles
-    $RoleObj = Invoke-RestMethod -Headers $Headers -Uri 'https://graph.microsoft.com/beta/directoryRoles'
-    $Roles = $RoleObj.value
-    $Results = $Roles | ForEach-Object {
+    $Results = Get-AzureADDirectoryRole | ForEach-Object {
         
         $Role = $_
-        $RoleId = $Role.ID
-    	$RoleMembersObj = Invoke-RestMethod -Headers $Headers -Uri "https://graph.microsoft.com/beta/directoryRoles/$RoleId/members"
-        $RoleMembers = $RoleMembersObj.Value
+    	
+        $RoleMembers = Get-AzureADDirectoryRoleMember -ObjectID $Role.ObjectID
+    	
         ForEach ($Member in $RoleMembers) {
-    	    $datatype = $Member.'@odata.type'
+    	
             $RoleMembership = New-Object PSObject
             $RoleMembership | Add-Member Noteproperty 'MemberName' $Member.DisplayName
-            $RoleMembership | Add-Member Noteproperty 'MemberID' $Member.ID
+            $RoleMembership | Add-Member Noteproperty 'MemberID' $Member.ObjectID
             $RoleMembership | Add-Member Noteproperty 'MemberOnPremID' $Member.OnPremisesSecurityIdentifier
             $RoleMembership | Add-Member Noteproperty 'MemberUPN' $Member.UserPrincipalName
-            $RoleMembership | Add-Member Noteproperty 'MemberType' $datatype.split('.')[-1]
-            $RoleMembership | Add-Member Noteproperty 'RoleID' $Role.RoleTemplateId  	  	
+            $RoleMembership | Add-Member Noteproperty 'MemberType' $Member.ObjectType
+            $RoleMembership | Add-Member Noteproperty 'RoleID' $Role.RoleTemplateId
+    	
             $RoleMembership
-        }      
+    	
+        }
+    	
     }
-   
+    
     $UsersAndRoles = ForEach ($User in $Results) {
-
+        $CurrentUser = $User.MemberID
+        $CurrentUserName = $User.MemberName
+        $CurrentUserRoles = ($Results | ? { $_.MemberID -eq $CurrentUser }).RoleID
+        $CurrentUserUPN = $User.MemberUPN
+        $CurrentUserOnPremID = $User.MemberOnPremID
+    	
         $UserAndRoles = New-Object PSObject
-        $UserAndRoles | Add-Member Noteproperty 'UserName' $User.MemberName
-        $UserAndRoles | Add-Member Noteproperty 'UserID' $User.MemberID
-        $UserAndRoles | Add-Member Noteproperty 'UserOnPremID'  $User.MemberOnPremID
-        $UserAndRoles | Add-Member Noteproperty 'UserUPN'  $User.MemberUPN
-        $UserAndRoles | Add-Member Noteproperty 'UserType' $User.MemberType
-        $UserAndRoles | Add-Member Noteproperty 'RoleID' ($Results | ? { $_.MemberID -eq $User.MemberID }).RoleID
+        $UserAndRoles | Add-Member Noteproperty 'UserName' $CurrentUserName
+        $UserAndRoles | Add-Member Noteproperty 'UserID' $CurrentUser
+        $UserAndRoles | Add-Member Noteproperty 'UserOnPremID' $CurrentUserOnPremID
+        $UserAndRoles | Add-Member Noteproperty 'UserUPN' $CurrentUserUPN
+        $UserAndRoles | Add-Member Noteproperty 'RoleID' $CurrentUserRoles
     	
         $UserAndRoles
     }
     $UserRoles = $UsersAndRoles | Sort-Object -Unique -Property UserName
     $UsersWithRoles = $UserRoles.UserID
-	$AzureADUsers = Invoke-RestMethod -Headers $Headers -Uri 'https://graph.microsoft.com/beta/users'
-    $UsersWithoutRoles = $AzureADUsers.value | ? { $_.ID -NotIn $UsersWithRoles }
+    $UsersWithoutRoles = Get-AzureADUser -All $True | ? { $_.ObjectID -NotIn $UsersWithRoles }
     
     $AuthAdminsList = @(
         'c4e39bd9-1100-46d3-8c65-fb160da0071f',
@@ -573,20 +582,20 @@ function Invoke-AzureHound {
     
     $PrivilegedAuthenticationAdmins = $UserRoles | ? { $_.RoleID -Contains '7be44c8a-adaf-4e2a-84d6-ab2649e08a13' }
     $PrivilegedAuthenticationAdminRights = ForEach ($User in $PrivilegedAuthenticationAdmins) {
-        $TargetUsers = $UserRoles | ? { $_.UserUPN -NotMatch "#EXT#" -And $_.UserType -Match "user"}
+        $TargetUsers = $UserRoles | ? { $_.UserUPN -NotMatch "#EXT#" }
         # Privileged authentication admins can reset ALL user passwords, including global admins
-        # You can't reset passwords for external users, which have "#EXT#" added to their UPN       
+        # You can't reset passwords for external users, which have "#EXT#" added to their UPN
+        		
         ForEach ($TargetUser in $TargetUsers) {
-        	
-            	
+        		
             $PWResetRight = New-Object PSObject
         		
             $PWResetRight | Add-Member Noteproperty 'UserName' $User.UserName
             $PWResetRight | Add-Member Noteproperty 'UserID' $User.UserID
             $PWResetRight | Add-Member Noteproperty 'UserOnPremID' $User.UserOnPremID
             $PWResetRight | Add-Member Noteproperty 'TargetUserName' $TargetUser.UserName
-            $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.UserId
-            $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.UserOnPremId
+            $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.UserID
+            $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.UserOnPremID
         		
             $PWResetRight
         }
@@ -597,9 +606,9 @@ function Invoke-AzureHound {
             $PWResetRight | Add-Member Noteproperty 'UserName' $User.UserName
             $PWResetRight | Add-Member Noteproperty 'UserID' $User.UserID
             $PWResetRight | Add-Member Noteproperty 'UserOnPremID' $User.UserOnPremID
-            $PWResetRight | Add-Member Noteproperty 'TargetUserName' $TargetUser.displayName
-            $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.Id
-            $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.onPremisesSecurityIdentifier
+            $PWResetRight | Add-Member Noteproperty 'TargetUserName' $TargetUser.DisplayName
+            $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.ObjectId
+            $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.OnPremisesSecurityIdentifier
         		
             $PWResetRight
         }
@@ -608,7 +617,7 @@ function Invoke-AzureHound {
     $AuthenticationAdmins = $UserRoles | ? { $_.RoleID -Contains 'c4e39bd9-1100-46d3-8c65-fb160da0071f' }
     $AuthAdminsRights = ForEach ($User in $AuthenticationAdmins) {
     	    
-        $TargetUsers = $UserRoles | ? { $AuthAdminsList -Contains $_.RoleID } | ? { $_.UserUPN -NotMatch "#EXT#" -And $_.UserType -Match "user" }
+        $TargetUsers = $UserRoles | ? { $AuthAdminsList -Contains $_.RoleID } | ? { $_.UserUPN -NotMatch "#EXT#" }
         # You can't reset passwords for external users, which have "#EXT#" added to their UPN
     		
         ForEach ($TargetUser in $TargetUsers) {
@@ -619,8 +628,8 @@ function Invoke-AzureHound {
             $PWResetRight | Add-Member Noteproperty 'UserID' $User.UserID
             $PWResetRight | Add-Member Noteproperty 'UserOnPremID' $User.UserOnPremID
             $PWResetRight | Add-Member Noteproperty 'TargetUserName' $TargetUser.UserName
-            $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.UserId
-            $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.UserOnPremId
+            $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.UserID
+            $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.UserOnPremID
     		
             $PWResetRight
         }
@@ -631,9 +640,9 @@ function Invoke-AzureHound {
             $PWResetRight | Add-Member Noteproperty 'UserName' $User.UserName
             $PWResetRight | Add-Member Noteproperty 'UserID' $User.UserID
             $PWResetRight | Add-Member Noteproperty 'UserOnPremID' $User.UserOnPremID
-            $PWResetRight | Add-Member Noteproperty 'TargetUserName' $TargetUser.displayName
-            $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.Id
-            $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.onPremisesSecurityIdentifier
+            $PWResetRight | Add-Member Noteproperty 'TargetUserName' $TargetUser.DisplayName
+            $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.ObjectId
+            $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.OnPremisesSecurityIdentifier
     		
             $PWResetRight
         }
@@ -642,7 +651,7 @@ function Invoke-AzureHound {
     $HelpdeskAdmins = $UserRoles | ? { $_.RoleID -Contains '729827e3-9c14-49f7-bb1b-9608f156bbb8' }
     $HelpdeskAdminsRights = ForEach ($User in $HelpdeskAdmins) {
     	    
-        $TargetUsers = $UserRoles | ? { $HelpdeskAdminsList -Contains $_.RoleID } | ? { $_.UserUPN -NotMatch "#EXT#" -And $_.UserType -Match "user" }
+        $TargetUsers = $UserRoles | ? { $HelpdeskAdminsList -Contains $_.RoleID } | ? { $_.UserUPN -NotMatch "#EXT#" }
     		
         ForEach ($TargetUser in $TargetUsers) {
     		
@@ -652,8 +661,8 @@ function Invoke-AzureHound {
             $PWResetRight | Add-Member Noteproperty 'UserID' $User.UserID
             $PWResetRight | Add-Member Noteproperty 'UserOnPremID' $User.UserOnPremID
             $PWResetRight | Add-Member Noteproperty 'TargetUserName' $TargetUser.UserName
-            $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.UserId
-            $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.UserOnPremId
+            $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.UserID
+            $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.UserOnPremID
     		
             $PWResetRight
         }
@@ -664,9 +673,9 @@ function Invoke-AzureHound {
             $PWResetRight | Add-Member Noteproperty 'UserName' $User.UserName
             $PWResetRight | Add-Member Noteproperty 'UserID' $User.UserID
             $PWResetRight | Add-Member Noteproperty 'UserOnPremID' $User.UserOnPremID
-            $PWResetRight | Add-Member Noteproperty 'TargetUserName' $TargetUser.displayName
-            $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.Id
-            $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.onPremisesSecurityIdentifier
+            $PWResetRight | Add-Member Noteproperty 'TargetUserName' $TargetUser.DisplayName
+            $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.ObjectId
+            $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.OnPremisesSecurityIdentifier
     		
             $PWResetRight
         }
@@ -676,7 +685,7 @@ function Invoke-AzureHound {
     $PasswordAdmins = $UserRoles | ? { $_.RoleID -Contains '966707d0-3269-4727-9be2-8c3a10f19b9d' }
     $PasswordAdminsRights = ForEach ($User in $PasswordAdmins) {
     	    
-        $TargetUsers = $UserRoles | ? { $PasswordAdminList -Contains $_.RoleID } | ? { $_.UserUPN -NotMatch "#EXT#" -And $_.UserType -Match "user"}
+        $TargetUsers = $UserRoles | ? { $PasswordAdminList -Contains $_.RoleID } | ? { $_.UserUPN -NotMatch "#EXT#" }
     		
         ForEach ($TargetUser in $TargetUsers) {
     		
@@ -686,8 +695,8 @@ function Invoke-AzureHound {
             $PWResetRight | Add-Member Noteproperty 'UserID' $User.UserID
             $PWResetRight | Add-Member Noteproperty 'UserOnPremID' $User.UserOnPremID
             $PWResetRight | Add-Member Noteproperty 'TargetUserName' $TargetUser.UserName
-            $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.UserId
-            $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.UserOnPremId
+            $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.UserID
+            $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.UserOnPremID
     		
             $PWResetRight
         }
@@ -698,9 +707,9 @@ function Invoke-AzureHound {
             $PWResetRight | Add-Member Noteproperty 'UserName' $User.UserName
             $PWResetRight | Add-Member Noteproperty 'UserID' $User.UserID
             $PWResetRight | Add-Member Noteproperty 'UserOnPremID' $User.UserOnPremID
-            $PWResetRight | Add-Member Noteproperty 'TargetUserName' $TargetUser.displayName
-            $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.Id
-            $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.onPremisesSecurityIdentifier
+            $PWResetRight | Add-Member Noteproperty 'TargetUserName' $TargetUser.DisplayName
+            $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.ObjectId
+            $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.OnPremisesSecurityIdentifier
     		
             $PWResetRight
         }
@@ -710,7 +719,7 @@ function Invoke-AzureHound {
     $UserAccountAdmins = $UserRoles | ? { $_.RoleID -Contains 'fe930be7-5e62-47db-91af-98c3a49a38b1' }
     $UserAccountAdminsRights = ForEach ($User in $UserAccountAdmins) {
     	    
-        $TargetUsers = $UserRoles | ? { $UserAdminList -Contains $_.RoleID } | ? { $_.UserUPN -NotMatch "#EXT#" -And $_.UserType -Match "user" }
+        $TargetUsers = $UserRoles | ? { $UserAdminList -Contains $_.RoleID } | ? { $_.UserUPN -NotMatch "#EXT#" }
     		
         ForEach ($TargetUser in $TargetUsers) {
     		
@@ -720,8 +729,8 @@ function Invoke-AzureHound {
             $PWResetRight | Add-Member Noteproperty 'UserID' $User.UserID
             $PWResetRight | Add-Member Noteproperty 'UserOnPremID' $User.UserOnPremID
             $PWResetRight | Add-Member Noteproperty 'TargetUserName' $TargetUser.UserName
-            $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.UserId
-            $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.UserOnPremId
+            $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.UserID
+            $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.UserOnPremID
     		
             $PWResetRight
         }
@@ -732,16 +741,16 @@ function Invoke-AzureHound {
             $PWResetRight | Add-Member Noteproperty 'UserName' $User.UserName
             $PWResetRight | Add-Member Noteproperty 'UserID' $User.UserID
             $PWResetRight | Add-Member Noteproperty 'UserOnPremID' $User.UserOnPremID
-            $PWResetRight | Add-Member Noteproperty 'TargetUserName' $TargetUser.displayName
-            $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.Id
-            $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.onPremisesSecurityIdentifier
+            $PWResetRight | Add-Member Noteproperty 'TargetUserName' $TargetUser.DisplayName
+            $PWResetRight | Add-Member Noteproperty 'TargetUserID' $TargetUser.ObjectId
+            $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.OnPremisesSecurityIdentifier
     		
             $PWResetRight
         }
     	
     }
     
-    $CloudGroups = $AzureADGroups | ? { $_.OnPremisesSecurityIdentifier -eq $null } | Select DisplayName, ID
+    $CloudGroups = Get-AzureADGroup -All $True | ? { $_.OnPremisesSecurityIdentifier -eq $null } | Select DisplayName, ObjectID
     
     # Intune administrator - 3a2c62db-5318-420d-8d74-23affee5d9d5 - Can add principals to cloud-resident security groups
     
@@ -754,10 +763,9 @@ function Invoke-AzureHound {
     		
             $GroupRight | Add-Member Noteproperty 'UserName' $User.UserName
             $GroupRight | Add-Member Noteproperty 'UserID' $User.UserID
-			$GroupRight | Add-Member Noteproperty 'UserType' $User.UserType
             $GroupRight | Add-Member Noteproperty 'UserOnPremID' $User.UserOnPremID
             $GroupRight | Add-Member Noteproperty 'TargetGroupName' $TargetGroup.DisplayName
-            $GroupRight | Add-Member Noteproperty 'TargetGroupID' $TargetGroup.ID
+            $GroupRight | Add-Member Noteproperty 'TargetGroupID' $TargetGroup.ObjectID
     		
             $GroupRight
         }
@@ -774,15 +782,17 @@ function Invoke-AzureHound {
     		
             $GroupRight | Add-Member Noteproperty 'UserName' $User.UserName
             $GroupRight | Add-Member Noteproperty 'UserID' $User.UserID
-			$GroupRight | Add-Member Noteproperty 'UserType' $User.UserType
             $GroupRight | Add-Member Noteproperty 'UserOnPremID' $User.UserOnPremID
             $GroupRight | Add-Member Noteproperty 'TargetGroupName' $TargetGroup.DisplayName
-            $GroupRight | Add-Member Noteproperty 'TargetGroupID' $TargetGroup.ID
+            $GroupRight | Add-Member Noteproperty 'TargetGroupID' $TargetGroup.ObjectID
     		
             $GroupRight
         }
     }
-     
+    
+    # Rights against the tenant itself
+    
+    $TenantDetails = Get-AzureADTenantDetail
     
     # Global Admin - has full control of everything in the tenant
     
@@ -794,9 +804,8 @@ function Invoke-AzureHound {
         $GlobalAdminRight | Add-Member Noteproperty 'UserName' $User.UserName
         $GlobalAdminRight | Add-Member Noteproperty 'UserID' $User.UserID
         $GlobalAdminRight | Add-Member Noteproperty 'UserOnPremID' $User.UserOnPremID
-		$GlobalAdminRight | Add-Member Noteproperty 'UserType' $User.UserType
-        $GlobalAdminRight | Add-Member Noteproperty 'TenantDisplayName' $Tenant.DisplayName
-        $GlobalAdminRight | Add-Member Noteproperty 'TenantID' $Tenant.ID
+        $GlobalAdminRight | Add-Member Noteproperty 'TenantDisplayName' $TenantDetails.DisplayName
+        $GlobalAdminRight | Add-Member Noteproperty 'TenantID' $TenantDetails.ObjectID
     		
         $GlobalAdminRight
     }
@@ -813,9 +822,8 @@ function Invoke-AzureHound {
         $PrivilegedRoleAdminRight | Add-Member Noteproperty 'UserName' $User.UserName
         $PrivilegedRoleAdminRight | Add-Member Noteproperty 'UserID' $User.UserID
         $PrivilegedRoleAdminRight | Add-Member Noteproperty 'UserOnPremID' $User.UserOnPremID
-		$PrivilegedRoleAdminRight | Add-Member Noteproperty 'UserType' $User.UserType
-        $PrivilegedRoleAdminRight | Add-Member Noteproperty 'TenantDisplayName' $Tenant.DisplayName
-        $PrivilegedRoleAdminRight | Add-Member Noteproperty 'TenantID' $Tenant.ID
+        $PrivilegedRoleAdminRight | Add-Member Noteproperty 'TenantDisplayName' $TenantDetails.DisplayName
+        $PrivilegedRoleAdminRight | Add-Member Noteproperty 'TenantID' $TenantDetails.ObjectID
     		
         $PrivRoleColl += $PrivilegedRoleAdminRight
     }
@@ -836,13 +844,8 @@ function Invoke-AzureHound {
     $UserAccountAdminsRights | ForEach-Object {
         $Coll += $_
     }
-    New-Output -Coll $Coll -Type "pwresetrights" -Directory $OutputDirectory
-    # $PrivilegedAuthenticationAdminRights | Export-CSV -NoTypeInformation -Append pwresetrights.csv
-    # $AuthAdminsRights | Export-CSV -NoTypeInformation -Append pwresetrights.csv
-    # $HelpdeskAdminsRights | Export-CSV -NoTypeInformation -Append pwresetrights.csv
-    # $PasswordAdminsRights | Export-CSV -NoTypeInformation -Append pwresetrights.csv
-    # $UserAccountAdminsRights | Export-CSV -NoTypeInformation -Append pwresetrights.csv
-    
+    New-Output -Coll $Coll -Type "pwresetrights" -Directory $OutputDirectory  
+
     $Coll = @()
     $IntuneAdminsRights | ForEach-Object {
         $Coll += $_
@@ -850,44 +853,33 @@ function Invoke-AzureHound {
     $GroupsAdminsRights | ForEach-Object {
         $Coll += $_
     }
-    New-Output -Coll $Coll -Type "groupsrights" -Directory $OutputDirectory
-    # $IntuneAdminsRights | Export-CSV -NoTypeInformation -Append groupsrights.csv
-    # $GroupsAdminsRights | Export-CSV -NoTypeInformation -Append groupsrights.csv
-    
+    New-Output -Coll $Coll -Type "groupsrights"   
     New-Output -Coll $GlobalAdminsRights -Type "globaladminrights" -Directory $OutputDirectory
     New-Output -Coll $PrivRoleColl -Type "privroleadminrights" -Directory $OutputDirectory
-    
-    # $GlobalAdminsRights | Export-CSV -NoTypeInformation globaladminrights.csv
-    # $PrivilegedRoleAdminRights | Export-CSV -NoTypeInformation privroleadminrights.csv
+
+
 
 
     $Coll = @()
     # Get app owners
-    $AzureADApplicationObj = Invoke-RestMethod -Headers $Headers -Uri 'https://graph.microsoft.com/beta/applications'
-    $AzureADApplication = $AzureADApplicationObj.value 
-    $AzureADApplication | ForEach-Object {
+    Get-AzureADApplication -All $True | ForEach-Object {
 
-        $AppId = $_.AppId
-		$AppName = $_.displayName
-        $ObjectId = $_.Id
-        $AppOwnersObj = Invoke-RestMethod -Headers $Headers -Uri "https://graph.microsoft.com/beta/applications/$ObjectId/owners"
-        $AppOwners = $AppOwnersObj.value	
+    $AppId = $_.AppId
+    $ObjectId = $_.ObjectId
 
-        ForEach ($Owner in $AppOwners) {
-	        $type = $Owner.'@odata.type'
-            $AzureAppOwner = New-Object PSObject
-		    
-            $AzureAppOwner | Add-Member Noteproperty 'AppId' $AppId
-            $AzureAppOwner | Add-Member Noteproperty 'AppObjectId' $ObjectId
-			$AzureAppOwner | Add-Member Noteproperty 'AppName' $AppName
-            $AzureAppOwner | Add-Member Noteproperty 'OwnerID' $Owner.Id
-            $AzureAppOwner | Add-Member Noteproperty 'OwnerType' $type.split('.')[-1]
-            $AzureAppOwner | Add-Member Noteproperty 'OwnerOnPremID' $Owner.OnPremisesSecurityIdentifier
-            $AzureAppOwner | Add-Member Noteproperty 'OwnerName' $Owner.displayName		
-            $Coll += $AzureAppOwner
-		    
-        }   
+    $AppOwners = Get-AzureADApplicationOwner -ObjectId $ObjectId
+	
+    ForEach ($Owner in $AppOwners) {
+	    
+        $AzureAppOwner = New-Object PSObject		
+        $AzureAppOwner | Add-Member Noteproperty 'AppId' $AppId
+        $AzureAppOwner | Add-Member Noteproperty 'AppObjectId' $ObjectId
+        $AzureAppOwner | Add-Member Noteproperty 'OwnerID' $Owner.ObjectId
+        $AzureAppOwner | Add-Member Noteproperty 'OwnerType' $Owner.ObjectType
+        $AzureAppOwner | Add-Member Noteproperty 'OwnerOnPremID' $Owner.OnPremisesSecurityIdentifier
+	   	$Coll += $AzureAppOwner
     }
+}
     New-Output -Coll $Coll -Type "applicationowners" -Directory $OutputDirectory
 
    $Coll = @()
@@ -913,7 +905,7 @@ function Invoke-AzureHound {
         }
     }
     
-    
+   
     $SPswithoutRoles = $SPOS | Where-Object {$_.ServicePrincipalID -notin $PrincipalRoles.SPId}
 
 
@@ -1012,7 +1004,6 @@ function Invoke-AzureHound {
         rm $jsonpath
     }
 }
-
 
 
 function Get-AzureADAuditSignInLogs2 {
@@ -1127,3 +1118,4 @@ function Get-AzureADSignInLogs3 {
     }
     return $results
 }
+Invoke-AzureHound
