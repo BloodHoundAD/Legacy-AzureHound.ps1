@@ -13,6 +13,11 @@ function Get-PrincipalMap {
     }
     $PrincipalMap
 }
+function Connect-AADUser {
+    $context = [Microsoft.Azure.Commands.Common.Authentication.Abstractions.AzureRmProfileProvider]::Instance.Profile.DefaultContext
+	$aadToken = [Microsoft.Azure.Commands.Common.Authentication.AzureSession]::Instance.AuthenticationFactory.Authenticate($context.Account, $context.Environment, $context.Tenant.Id.ToString(), $null, [Microsoft.Azure.Commands.Common.Authentication.ShowDialog]::Never, $null, "https://graph.windows.net").AccessToken
+    Connect-AzureAD -AadAccessToken $aadToken -AccountId $context.Account.Id -TenantId $context.tenant.id
+}
 
 function Get-AzureGraphToken
 {
@@ -50,15 +55,14 @@ function Invoke-AzureHound {
     [Parameter(Mandatory=$False)][String]$OutputDirectory = $(Get-Location),[ValidateNotNullOrEmpty()]
     [Parameter(Mandatory=$False)][Switch]$Install = $null)
 
-    $Modules = Get-InstalledModule
-    if ($Modules.Name -notcontains 'Az.Accounts' -and $Modules.Name -notcontains 'AzureAD'){ 
-      Write-Host "AzureHound requires the 'Az' and 'Azure AD PowerShell module, please install by using the -Install switch." -ForegroundColor Red
-      exit
-    }
-
     if ($Install){
       Install-Module -Name Az -AllowClobber
       Install-module -Name AzureADPreview -AllowClobber
+    }
+    $Modules = Get-InstalledModule
+    if ($Modules.Name -notcontains 'Az.Accounts' -and $Modules.Name -notcontains 'AzureAD'){ 
+      Read-Host -Prompt "AzureHound requires the 'Az' and 'Azure AD PowerShell module, please install by using the -Install switch." -ForegroundColor Red
+	  exit
     }
     #Login Check
     $APSUser = Get-AzContext *>&1 
@@ -72,7 +76,7 @@ function Invoke-AzureHound {
     }
     $AADUser = Get-AzureADTenantDetail *>&1 
     if ($AADUser -eq $null){
-        Connect-AzureAD
+        Connect-AADUser
         $AADUser = Get-AzureADTenantDetail *>&1 
         if ($AADUser -eq $null){
             Read-Host -Prompt "Login via AzureAD PS Module failed."
@@ -1118,3 +1122,4 @@ function Get-AzureADSignInLogs3 {
     }
     return $results
 }
+Invoke-AzureHound
