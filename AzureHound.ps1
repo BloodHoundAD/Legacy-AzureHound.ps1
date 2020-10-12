@@ -1,4 +1,4 @@
- # AzureHound Beta
+# AzureHound Beta
 # Authors: Andy Robbins (@_wald0), Rohan Vazarkar (@cptjesus), Ryan Hausknecht (@haus3c)
 # Copyright: SpecterOps, Inc. 2020
 
