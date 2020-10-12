@@ -14,9 +14,12 @@ function Get-PrincipalMap {
     $PrincipalMap
 }
 function Connect-AADUser {
+    $ConnectionTest = try{ [Microsoft.Open.Azure.AD.CommonLibrary.AzureSession]::AccessTokens['AccessToken']}
+    catch{"Error"}
+    If($ConnectionTest -eq 'Error'){ 
     $context = [Microsoft.Azure.Commands.Common.Authentication.Abstractions.AzureRmProfileProvider]::Instance.Profile.DefaultContext
     $aadToken = [Microsoft.Azure.Commands.Common.Authentication.AzureSession]::Instance.AuthenticationFactory.Authenticate($context.Account, $context.Environment, $context.Tenant.Id.ToString(), $null, [Microsoft.Azure.Commands.Common.Authentication.ShowDialog]::Never, $null, "https://graph.windows.net").AccessToken
-    Connect-AzureAD -AadAccessToken $aadToken -AccountId $context.Account.Id -TenantId $context.tenant.id
+    Connect-AzureAD -AadAccessToken $aadToken -AccountId $context.Account.Id -TenantId $context.tenant.id}
 }
 
 function Get-AzureGraphToken
@@ -84,16 +87,7 @@ function Invoke-AzureHound {
             exit
             }
     }
-    $AADUser = Get-AzureADTenantDetail *>&1 
-    if ($AADUser -eq $null){
-        Connect-AADUser
-        $AADUser = Get-AzureADTenantDetail *>&1 
-        if ($AADUser -eq $null){
-            Read-Host -Prompt "Login via AzureAD PS Module failed."
-            exit
-            }
-    }
-
+    Connect-AADUser
     $Headers = Get-AzureGraphToken
 
     If(!$TenantID){
