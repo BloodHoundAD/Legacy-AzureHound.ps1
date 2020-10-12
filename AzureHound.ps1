@@ -1477,6 +1477,7 @@ function Invoke-AzureHound {
 
     $AppId = $_.AppId
     $ObjectId = $_.ObjectId
+    $AppName = $_.DisplayName
 
     $AppOwners = Get-AzureADApplicationOwner -ObjectId $ObjectId
     
@@ -1492,6 +1493,7 @@ function Invoke-AzureHound {
         $AzureAppOwner = [PSCustomObject]@{
             AppId           = $AppId
             AppObjectId     = $ObjectId
+            AppName         = $AppName
             OwnerID         = $Owner.ObjectId
             OwnerType       = $Owner.ObjectType
             OwnerOnPremID   = $Owner.OnPremisesSecurityIdentifier
