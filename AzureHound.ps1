@@ -978,6 +978,7 @@ function Invoke-AzureHound {
     Write-Info "Massasing initial object into object we will use later"
     $UsersAndRoles = ForEach ($User in $Results) {
         $CurrentUser = $User.MemberID
+		$CurrentObjectType = $User.MemberType
         $CurrentUserName = $User.MemberName
         $CurrentUserRoles = ($Results | ? { $_.MemberID -eq $CurrentUser }).RoleID
         $CurrentUserUPN = $User.MemberUPN
@@ -992,6 +993,7 @@ function Invoke-AzureHound {
 
         $UserAndRoles = [PSCustomObject]@{
             UserName        = $CurrentUserName
+			ObjectType      = $CurrentObjectType
             UserID          = $CurrentUser
             UserOnPremID    = $CurrentUserOnPremID
             UserUPN         = $CurrentUserUPN
@@ -1048,7 +1050,7 @@ function Invoke-AzureHound {
     $TotalCount = $PrivilegedAuthenticationAdmins.Count
     Write-Info "Privileged authentication admins to process: ${TotalCount}"
     $PrivilegedAuthenticationAdminRights = ForEach ($User in $PrivilegedAuthenticationAdmins) {
-        $TargetUsers = $UserRoles | ? { $_.UserUPN -NotMatch "#EXT#" }
+        $TargetUsers = $UserRoles | ? { $_.UserUPN -NotMatch "#EXT#" } | ? {$_.ObjectType -Match "User"}
         # Privileged authentication admins can reset ALL user passwords, including global admins
         # You can't reset passwords for external users, which have "#EXT#" added to their UPN
                 
@@ -1064,13 +1066,13 @@ function Invoke-AzureHound {
 
             $PWResetRight = [PSCustomObject]@{
                 UserName            = $User.UserName
+				ObjectType          = $User.ObjectType
                 UserID              = $User.UserID
                 UserOnPremID        = $User.UserOnPremID
                 TargetUserName      = $TargetUser.UserName
                 TargetUserID        = $TargetUser.UserID
                 TargetUserOnPremID  = $TargetUser.UserOnPremID
             }
-            $PWResetRight
         }
             
         ForEach ($TargetUser in $UsersWithoutRoles) {
@@ -1085,6 +1087,7 @@ function Invoke-AzureHound {
 
             $PWResetRight = [PSCustomObject]@{
                 UserName            = $User.UserName
+				ObjectType          = $User.ObjectType
                 UserID              = $User.UserID
                 UserOnPremID        = $User.UserOnPremID
                 TargetUserName      = $TargetUser.DisplayName
@@ -1103,7 +1106,7 @@ function Invoke-AzureHound {
     Write-Info "Authentication admins to process: ${TotalCount}"
     $AuthAdminsRights = ForEach ($User in $AuthenticationAdmins) {
             
-        $TargetUsers = $UserRoles | ? { $AuthAdminsList -Contains $_.RoleID } | ? { $_.UserUPN -NotMatch "#EXT#" }
+        $TargetUsers = $UserRoles | ? { $AuthAdminsList -Contains $_.RoleID } | ? { $_.UserUPN -NotMatch "#EXT#" } | ? {$_.ObjectType -Match "User"}
         # You can't reset passwords for external users, which have "#EXT#" added to their UPN
             
         ForEach ($TargetUser in $TargetUsers) {
@@ -1118,6 +1121,7 @@ function Invoke-AzureHound {
 
             $PWResetRight = [PSCustomObject]@{
                 UserName            = $User.UserName
+				ObjectType          = $User.ObjectType
                 UserID              = $User.UserID
                 UserOnPremID        = $User.UserOnPremID
                 TargetUserName      = $TargetUser.UserName
@@ -1140,6 +1144,7 @@ function Invoke-AzureHound {
 
             $PWResetRight = [PSCustomObject]@{
                 UserName            = $User.UserName
+				ObjectType          = $User.ObjectType
                 UserID              = $User.UserID
                 UserOnPremID        = $User.UserOnPremID
                 TargetUserName      = $TargetUser.DisplayName
@@ -1159,7 +1164,7 @@ function Invoke-AzureHound {
     Write-Info "Help desk admins to process: ${TotalCount}"
     $HelpdeskAdminsRights = ForEach ($User in $HelpdeskAdmins) {
             
-        $TargetUsers = $UserRoles | ? { $HelpdeskAdminsList -Contains $_.RoleID } | ? { $_.UserUPN -NotMatch "#EXT#" }
+        $TargetUsers = $UserRoles | ? { $HelpdeskAdminsList -Contains $_.RoleID } | ? { $_.UserUPN -NotMatch "#EXT#" } | ? {$_.ObjectType -Match "User"}
             
         ForEach ($TargetUser in $TargetUsers) {
             
@@ -1173,6 +1178,7 @@ function Invoke-AzureHound {
 
             $PWResetRight = [PSCustomObject]@{
                 UserName            = $User.UserName
+				ObjectType          = $User.ObjectType
                 UserID              = $User.UserID
                 UserOnPremID        = $User.UserOnPremID
                 TargetUserName      = $TargetUser.UserName
@@ -1195,6 +1201,7 @@ function Invoke-AzureHound {
 
             $PWResetRight = [PSCustomObject]@{
                 UserName            = $User.UserName
+				ObjectType          = $User.ObjectType
                 UserID              = $User.UserID
                 UserOnPremID        = $User.UserOnPremID
                 TargetUserName      = $TargetUser.DisplayName
@@ -1215,7 +1222,7 @@ function Invoke-AzureHound {
     Write-Info "Password admins to process: ${TotalCount}"
     $PasswordAdminsRights = ForEach ($User in $PasswordAdmins) {
             
-        $TargetUsers = $UserRoles | ? { $PasswordAdminList -Contains $_.RoleID } | ? { $_.UserUPN -NotMatch "#EXT#" }
+        $TargetUsers = $UserRoles | ? { $PasswordAdminList -Contains $_.RoleID } | ? { $_.UserUPN -NotMatch "#EXT#" } | ? {$_.ObjectType -Match "User"}
             
         ForEach ($TargetUser in $TargetUsers) {
             
@@ -1229,11 +1236,12 @@ function Invoke-AzureHound {
 
             $PWResetRight = [PSCustomObject]@{
                 UserName            = $User.UserName
+				ObjectType          = $User.ObjectType
                 UserID              = $User.UserID
                 UserOnPremID        = $User.UserOnPremID
-                TargetUserName      = $TargetUser.DisplayName
-                TargetUserID        = $TargetUser.ObjectId
-                TargetUserOnPremID  = $TargetUser.OnPremisesSecurityIdentifier
+                TargetUserName      = $TargetUser.UserName
+                TargetUserID        = $TargetUser.UserID
+                TargetUserOnPremID  = $TargetUser.UserOnPremID
             }
             
             $PWResetRight
@@ -1251,6 +1259,7 @@ function Invoke-AzureHound {
 
             $PWResetRight = [PSCustomObject]@{
                 UserName            = $User.UserName
+				ObjectType          = $User.ObjectType
                 UserID              = $User.UserID
                 UserOnPremID        = $User.UserOnPremID
                 TargetUserName      = $TargetUser.DisplayName
@@ -1283,7 +1292,7 @@ function Invoke-AzureHound {
                 Write-Info "Processing user account admins: [${Progress}/${TotalCount}][${ProgressPercentage}%] Current user account admin: ${DisplayName}" 
             }
             
-        $TargetUsers = $UserRoles | ? { $UserAdminList -Contains $_.RoleID } | ? { $_.UserUPN -NotMatch "#EXT#" }
+        $TargetUsers = $UserRoles | ? { $UserAdminList -Contains $_.RoleID } | ? { $_.UserUPN -NotMatch "#EXT#" } | ? {$_.ObjectType -Match "User"}
             
         ForEach ($TargetUser in $TargetUsers) {
             
@@ -1297,14 +1306,15 @@ function Invoke-AzureHound {
 
             $PWResetRight = [PSCustomObject]@{
                 UserName            = $User.UserName
+				ObjectType          = $User.ObjectType
                 UserID              = $User.UserID
                 UserOnPremID        = $User.UserOnPremID
-                TargetUserName      = $TargetUser.DisplayName
-                TargetUserID        = $TargetUser.ObjectId
-                TargetUserOnPremID  = $TargetUser.OnPremisesSecurityIdentifier
+                TargetUserName      = $TargetUser.UserName
+                TargetUserID        = $TargetUser.UserID
+                TargetUserOnPremID  = $TargetUser.UserOnPremID
             }
-            
-            $PWResetRight
+			
+			$PWResetRight
         }
 
         $TargetUsers = $UsersWithoutRoles | ?{$_.OnPremisesSecurityIdentifier -eq $null} | ? { $_.UserUPN -NotMatch "#EXT#" }
@@ -1321,12 +1331,13 @@ function Invoke-AzureHound {
             $PWResetRight | Add-Member Noteproperty 'TargetUserOnPremID' $TargetUser.OnPremisesSecurityIdentifier#>
 
             $PWResetRight = [PSCustomObject]@{
-                UserName = $User.UserName
-                UserID = $User.UserID
-                UserOnPremID = $User.UserOnPremID
-                TargetUserName = $TargetUser.DisplayName
-                TargetUserID = $TargetUser.ObjectId
-                TargetUserOnPremID = $TargetUser.OnPremisesSecurityIdentifier
+                UserName            = $User.UserName
+				ObjectType          = $User.ObjectType
+                UserID              = $User.UserID
+                UserOnPremID        = $User.UserOnPremID
+                TargetUserName      = $TargetUser.DisplayName
+                TargetUserID        = $TargetUser.ObjectId
+                TargetUserOnPremID  = $TargetUser.OnPremisesSecurityIdentifier
             }
 
             $PWResetRight
@@ -1353,6 +1364,7 @@ function Invoke-AzureHound {
 
             $GroupRight = [PSCustomObject]@{
                 UserName        = $User.UserName
+				ObjectType      = $User.ObjectType
                 UserID          = $User.UserID
                 UserOnPremID    = $User.UserOnPremID
                 TargetGroupName = $TargetGroup.DisplayName
@@ -1379,6 +1391,7 @@ function Invoke-AzureHound {
 
             $GroupRight = [PSCustomObject]@{
                 UserName        = $User.UserName
+				ObjectType      = $User.ObjectType
                 UserID          = $User.UserID
                 UserOnPremID    = $User.UserOnPremID
                 TargetGroupName = $TargetGroup.DisplayName
@@ -1408,6 +1421,7 @@ function Invoke-AzureHound {
 
         $GlobalAdminRight = [PSCustomObject]@{
             UserName            = $User.UserName
+			ObjectType          = $User.ObjectType
             UserID              = $User.UserID
             UserOnPremID        = $User.UserOnPremID
             TenantDisplayName   = $TenantDetails.DisplayName
@@ -1433,6 +1447,7 @@ function Invoke-AzureHound {
 
         $PrivilegedRoleAdminRight = [PSCustomObject]@{
             UserName            = $User.UserName
+			ObjectType          = $User.ObjectType
             UserID              = $User.UserID
             UserOnPremID        = $User.UserOnPremID
             TenantDisplayName   = $TenantDetails.DisplayName
