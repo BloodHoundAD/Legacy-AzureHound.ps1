@@ -13,15 +13,6 @@ function Get-PrincipalMap {
     }
     $PrincipalMap
 }
-function Connect-AADUser {
-    $ConnectionTest = try{ [Microsoft.Open.Azure.AD.CommonLibrary.AzureSession]::AccessTokens['AccessToken']}
-    catch{"Error"}
-    If($ConnectionTest -eq 'Error'){ 
-    $context = [Microsoft.Azure.Commands.Common.Authentication.Abstractions.AzureRmProfileProvider]::Instance.Profile.DefaultContext
-    $aadToken = [Microsoft.Azure.Commands.Common.Authentication.AzureSession]::Instance.AuthenticationFactory.Authenticate($context.Account, $context.Environment, $context.Tenant.Id.ToString(), $null, [Microsoft.Azure.Commands.Common.Authentication.ShowDialog]::Never, $null, "https://graph.windows.net").AccessToken
-    Connect-AzureAD -AadAccessToken $aadToken -AccountId $context.Account.Id -TenantId $context.tenant.id}
-}
-
 function Get-AzureGraphToken
 {
     $APSUser = Get-AzContext *>&1 
@@ -87,8 +78,11 @@ function Invoke-AzureHound {
             exit
             }
     }
-    Connect-AADUser
     $Headers = Get-AzureGraphToken
+
+    try{$AADCheck = Get-AzureADTenantDetail}catch{}
+    If($Error){
+    Connect-AzureAD}
 
     If(!$TenantID){
         $TenantObj = Invoke-RestMethod -Headers $Headers -Uri 'https://graph.microsoft.com/beta/organization'
@@ -220,7 +214,7 @@ function Invoke-AzureHound {
     # Enumerate subscriptions:
     $Coll = @()
     Write-Info "Building subscription(s) object."
-    $AADSubscriptions = Get-AzSubscription
+    $AADSubscriptions = Get-AzSubscription | Where-Object {$_.TenantId -eq $TenantID}
     $TotalCount = $AADSubscriptions.Count
     If ($TotalCount -gt 1) {
         Write-Info "Done building subscription object, processing ${TotalCount} subscription"
@@ -320,7 +314,7 @@ function Invoke-AzureHound {
         Select-AzSubscription -SubscriptionID $_.Id | Out-Null
         
         Write-Info "Building VMs object for subscription ${SubDisplayName}"
-        $AADVirtualMachines = Get-AzVM
+        $AADVirtualMachines = Get-AzVM 
         $TotalCount = $AADVirtualMachines.Count
         If ($TotalCount -gt 1) {
             Write-Info "Done building VM object, processing ${TotalCount} virtual machine"
