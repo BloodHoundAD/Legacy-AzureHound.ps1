@@ -83,7 +83,7 @@ function Invoke-AzureHound {
         Connect-AzAccount
         $APSUser = Get-AzContext *>&1
         if ($APSUser -eq $null){
-            Read-Host -Prompt "Login via Az PS Module failed."
+            Write-Host "Login via Az PS Module failed."
             exit
             }
     }
