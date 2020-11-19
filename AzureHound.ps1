@@ -1278,6 +1278,7 @@ function Invoke-AzureHound {
 
     $Coll = @()
     # Get app owners
+	Write-Info "Processing application owners"
     Get-AzureADApplication -All $True | ForEach-Object {
 
     $AppId = $_.AppId
@@ -1301,8 +1302,10 @@ function Invoke-AzureHound {
     }
     }
     New-Output -Coll $Coll -Type "applicationowners" -Directory $OutputDirectory
+	Write-Info "Done processing application owners"
 
    $Coll = @()
+   Write-Info "Processing application to service principal relations"
    $SPOS = Get-AzADApplication | Get-AzADServicePrincipal | %{
 
     $ServicePrincipals = [PSCustomObject]@{
@@ -1316,7 +1319,7 @@ function Invoke-AzureHound {
 
     }
     New-Output -Coll $Coll -Type "applicationtosp" -Directory $OutputDirectory
-    
+	Write-Info "Done processing application to service principal relations"
         
     $PrincipalRoles = ForEach ($User in $Results){
         $SPRoles = New-Object PSObject
@@ -1336,6 +1339,7 @@ function Invoke-AzureHound {
     $SPswithoutRoles = $SPOS | Where-Object {$_.ServicePrincipalID -notin $PrincipalRoles.SPId}
 
     $Coll = @()
+	Write-Info "Processing Application Admins"
     # Application Admins - Can create new secrets for application service principals
     # Write to appadmins.json
     $AppAdmins = $UserRoles | Where-Object {$_.RoleID -match '9b895d92-2cd3-44c7-9d02-a6ac2d5ea5c3'}
@@ -1375,10 +1379,11 @@ function Invoke-AzureHound {
         }
     }
     New-Output -Coll $Coll -Type "applicationadmins" -Directory $OutputDirectory
-    
+	Write-Info "Done processing Application Admins"
     
     # Cloud Application Admins - Can create new secrets for application service principals
     # Write to cloudappadmins.json
+	Write-Info "Processing Cloud Application Admins"
     $Coll = @()
     $CloudAppAdmins = $UserRoles | Where-Object {$_.RoleID -match '158c047a-c907-4556-b7ef-446551a6b5f7'}
     $SPsWithAzureAppAdminRole = $UserRoles | Where-Object {$_.RoleID -match '158c047a-c907-4556-b7ef-446551a6b5f7' -and $_.UserType -match 'serviceprincipal' }
@@ -1416,6 +1421,7 @@ function Invoke-AzureHound {
         }
     }
     New-Output -Coll $Coll -Type "cloudappadmins" -Directory $OutputDirectory
+	Write-Info "Done processing Cloud Application Admins"
 
     Write-Host "Compressing files"
     $location = Get-Location
