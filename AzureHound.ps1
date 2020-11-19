@@ -71,7 +71,7 @@ function Invoke-AzureHound {
 
     $Modules = Get-InstalledModule
     if ($Modules.Name -notcontains 'Az.Accounts' -and $Modules.Name -notcontains 'AzureAD'){ 
-      Read-Host -Prompt "AzureHound requires the 'Az' and 'Azure AD PowerShell module, please install by using the -Install switch." -ForegroundColor Red
+      Write-Host "AzureHound requires the 'Az' and 'Azure AD PowerShell module, please install by using the -Install switch."
       exit
     }
 
