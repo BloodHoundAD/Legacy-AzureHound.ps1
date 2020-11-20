@@ -109,7 +109,7 @@ function Invoke-AzureHound {
         $DisplayName = ($User.UserPrincipalName).Split('@')[0]
 
         $Progress += 1
-        $ProgressPercentage = ($Progress / $TotalCount) * 100
+        $ProgressPercentage = (($Progress / $TotalCount) * 100) -As [Int]
 
         If ($Progress -eq $TotalCount) {
             Write-Host "Processing users: [${Progress}/${TotalCount}][${ProgressPercentage}%] Current user: ${DisplayName}"
@@ -149,7 +149,7 @@ function Invoke-AzureHound {
         $DisplayName = $Group.displayname
 
         $Progress += 1
-        $ProgressPercentage = ($Progress / $TotalCount) * 100
+        $ProgressPercentage = (($Progress / $TotalCount) * 100) -As [Int]
 
         If ($Progress -eq $TotalCount) {
             Write-Info "Processing groups: [${Progress}/${TotalCount}][${ProgressPercentage}%] Current group: ${DisplayName}"
@@ -187,7 +187,7 @@ function Invoke-AzureHound {
         $DisplayName = $Tenant.DisplayName
 
         $Progress += 1
-        $ProgressPercentage = ($Progress / $TotalCount) * 100
+        $ProgressPercentage = (($Progress / $TotalCount) * 100) -As [Int]
 
         If ($Progress -eq $TotalCount) {
             Write-Info "Processing tenants: [${Progress}/${TotalCount}][${ProgressPercentage}%] Current tenant: ${DisplayName}"
@@ -223,7 +223,7 @@ function Invoke-AzureHound {
         $DisplayName = $Subscription.Name
 
         $Progress += 1
-        $ProgressPercentage = ($Progress / $TotalCount) * 100
+        $ProgressPercentage = (($Progress / $TotalCount) * 100) -As [Int]
 
         If ($Progress -eq $TotalCount) {
             Write-Info "Processing subscriptions: [${Progress}/${TotalCount}][${ProgressPercentage}%] Current subscription: ${DisplayName}"
@@ -266,7 +266,7 @@ function Invoke-AzureHound {
             $DisplayName = $RG.ResourceGroupName
 
             $Progress += 1
-            $ProgressPercentage = ($Progress / $TotalCount) * 100
+            $ProgressPercentage = (($Progress / $TotalCount) * 100) -As [Int]
 
             If ($Progress -eq $TotalCount) {
                 Write-Info "Processing resource groups: [${Progress}/${TotalCount}][${ProgressPercentage}%] Current resource group: ${DisplayName}"
@@ -314,7 +314,7 @@ function Invoke-AzureHound {
             $DisplayName = $VM.Name
 
             $Progress += 1
-            $ProgressPercentage = ($Progress / $TotalCount) * 100
+            $ProgressPercentage = (($Progress / $TotalCount) * 100) -As [Int]
 
             If ($Progress -eq $TotalCount) {
                 Write-Info "Processing virtual machines: [${Progress}/${TotalCount}][${ProgressPercentage}%] Current virtual machine: ${DisplayName}"
@@ -368,7 +368,7 @@ function Invoke-AzureHound {
             $DisplayName = $KeyVault.Name
 
             $Progress += 1
-            $ProgressPercentage = ($Progress / $TotalCount) * 100
+            $ProgressPercentage = (($Progress / $TotalCount) * 100) -As [Int]
 
             If ($Progress -eq $TotalCount) {
                 Write-Info "Processing key vaults: [${Progress}/${TotalCount}][${ProgressPercentage}%] Current key vault: ${DisplayName}"
@@ -410,7 +410,7 @@ function Invoke-AzureHound {
         $DisplayName = $Device.DisplayName
 
         $Progress += 1
-        $ProgressPercentage = ($Progress / $TotalCount) * 100
+        $ProgressPercentage = (($Progress / $TotalCount) * 100) -As [Int]
 
         If ($Progress -eq $TotalCount) {
             Write-Info "Processing devices: [${Progress}/${TotalCount}][${ProgressPercentage}%] Current device: ${DisplayName}"
@@ -453,7 +453,7 @@ function Invoke-AzureHound {
         $DisplayName = $Group.DisplayName
 
         $Progress += 1
-        $ProgressPercentage = ($Progress / $TotalCount) * 100
+        $ProgressPercentage = (($Progress / $TotalCount) * 100) -As [Int]
 
         If ($Progress -eq $TotalCount) {
             Write-Info "Processing group ownerships: [${Progress}/${TotalCount}][${ProgressPercentage}%] Current group: ${DisplayName}"
@@ -497,7 +497,7 @@ function Invoke-AzureHound {
         $DisplayName = $Group.DisplayName
 
         $Progress += 1
-        $ProgressPercentage = ($Progress / $TotalCount) * 100
+        $ProgressPercentage = (($Progress / $TotalCount) * 100) -As [Int]
 
         If ($Progress -eq $TotalCount) {
             Write-Info "Processing group memberships: [${Progress}/${TotalCount}][${ProgressPercentage}%] Current group: ${DisplayName}"
@@ -557,7 +557,7 @@ function Invoke-AzureHound {
             $DisplayName = $VM.Name
 
             $Progress += 1
-            $ProgressPercentage = ($Progress / $TotalCount) * 100
+            $ProgressPercentage = (($Progress / $TotalCount) * 100) -As [Int]
 
             If ($Progress -eq $TotalCount) {
                 Write-Info "Processing virtual machines: [${Progress}/${TotalCount}][${ProgressPercentage}%] Current VM: ${DisplayName}"
@@ -637,7 +637,7 @@ function Invoke-AzureHound {
             $DisplayName = $RG.DisplayName
 
             $Progress += 1
-            $ProgressPercentage = ($Progress / $TotalCount) * 100
+            $ProgressPercentage = (($Progress / $TotalCount) * 100) -As [Int]
 
             If ($Progress -eq $TotalCount) {
                 Write-Info "Processing resource groups: [${Progress}/${TotalCount}][${ProgressPercentage}%] Current resource group: ${DisplayName}"
@@ -710,7 +710,7 @@ function Invoke-AzureHound {
             $DisplayName = $KeyVault.DisplayName
 
             $Progress += 1
-            $ProgressPercentage = ($Progress / $TotalCount) * 100
+            $ProgressPercentage = (($Progress / $TotalCount) * 100) -As [Int]
 
             If ($Progress -eq $TotalCount) {
                 Write-Info "Processing key vaults: [${Progress}/${TotalCount}][${ProgressPercentage}%] Current key vault: ${DisplayName}"
@@ -778,7 +778,7 @@ function Invoke-AzureHound {
             $DisplayName = $KeyVault.DisplayName
 
             $Progress += 1
-            $ProgressPercentage = ($Progress / $TotalCount) * 100
+            $ProgressPercentage = (($Progress / $TotalCount) * 100) -As [Int]
 
             If ($Progress -eq $TotalCount) {
                 Write-Info "Processing key vaults: [${Progress}/${TotalCount}][${ProgressPercentage}%] Current key vault: ${DisplayName}"
@@ -1124,7 +1124,7 @@ function Invoke-AzureHound {
         $DisplayName = $User.UserName
         
         $Progress += 1
-            $ProgressPercentage = ($Progress / $TotalCount) * 100
+            $ProgressPercentage = (($Progress / $TotalCount) * 100) -As [Int]
 
             If ($Progress -eq $TotalCount) {
                 Write-Info "Processing user account admins: [${Progress}/${TotalCount}][${ProgressPercentage}%] Current user account admin: ${DisplayName}"
