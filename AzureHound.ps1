@@ -585,6 +585,11 @@ function Invoke-AzureHound {
                     $Controller = Get-AzureADGroup -ObjectID $Role.ObjectID
                     $OnPremID = $Controller.OnPremisesSecurityIdentifier
                 }
+				
+				If ($ControllerType -eq "ServicePrincipal") {
+                    $Controller = Get-AzureADServicePrincipal -ObjectID $Role.ObjectID
+                    $OnPremID = $null
+                }
             
                 $VMPrivilege = New-Object PSObject
 
