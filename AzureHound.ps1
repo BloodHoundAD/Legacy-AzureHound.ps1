@@ -41,15 +41,14 @@ function Write-Info ($Message) {
 
 function New-Output($Coll, $Type, $Directory) {
     
+    $Count = $Coll.Count
+
     Write-Host "Writing output for $($Type)"
 	if ($null -eq $Coll) {
         $Coll = New-Object System.Collections.ArrayList
-		$Count = 0
     }
-	else {
-		$Count = $Coll.Count
-	}
-    
+
+    $Output = New-Object PSObject
     $Meta = New-Object PSObject
     $Meta | Add-Member Noteproperty 'count' $Coll.Count
     $Meta | Add-Member Noteproperty 'type' "az$($Type)"
