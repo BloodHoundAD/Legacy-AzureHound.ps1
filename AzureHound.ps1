@@ -510,7 +510,7 @@ function Invoke-AzureHound {
         }
 
         $GroupID = $_.ObjectID
-        $Members = Get-AzureADGroupMember -ObjectId "$GroupID"
+        $Members = Get-AzureADGroupMember -All $True -ObjectId "$GroupID"
         
         ForEach ($Member in $Members) {
 
