@@ -77,6 +77,7 @@ function New-Output($Coll, $Type, $Directory) {
             $end = (($n+1)*$chunksize)-1
             $chunkarray += ,@($coll[$start..$end])
         }
+        $Stream.Flush()
         $Count = $chunkarray.Count
 
         $chunkcounter = 1
@@ -91,12 +92,13 @@ function New-Output($Coll, $Type, $Directory) {
             } Else {
                 $Stream.WriteLine("")
             }
+            $Stream.Flush()
             $chunkcounter += 1
         }
-        $stream.WriteLine("`t]")
-        $stream.WriteLine("}")
+        $Stream.WriteLine("`t]")
+        $Stream.WriteLine("}")
     } finally {
-        $stream.close()
+        $Stream.close()
     }
 }
 
