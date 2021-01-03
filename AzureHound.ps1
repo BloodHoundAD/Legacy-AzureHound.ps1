@@ -40,7 +40,7 @@ function Write-Info ($Message) {
 }
 
 function New-Output($Coll, $Type, $Directory) {
-    
+
     $Count = $Coll.Count
 
     Write-Host "Writing output for $($Type)"
@@ -48,15 +48,56 @@ function New-Output($Coll, $Type, $Directory) {
         $Coll = New-Object System.Collections.ArrayList
     }
 
-    $Output = New-Object PSObject
-    $Meta = New-Object PSObject
-    $Meta | Add-Member Noteproperty 'count' $Coll.Count
-    $Meta | Add-Member Noteproperty 'type' "az$($Type)"
-    $Meta | Add-Member Noteproperty 'version' 4
-    $Output | Add-Member Noteproperty 'meta' $Meta
-    $Output | Add-Member Noteproperty 'data' $Coll
-    $FileName = $Directory + "\" + $date + "-" + "az" + $($Type) + ".json"
-    $Output | ConvertTo-Json | Out-File -Encoding "utf8" -FilePath $FileName  
+    # ConvertTo-Json consumes too much memory on larger objects, which can have millions
+    # of entries in a large tenant. Write out the JSON structure a bit at a time to work
+    # around this. This is a bit inefficient, but makes this work when the tenant becomes
+    # too large.
+    $FileName = $Directory + [IO.Path]::DirectorySeparatorChar + $date + "-" + "az" + $($Type) + ".json"
+    try {
+        $Stream = [System.IO.StreamWriter]::new($FileName)
+
+        # Write file header JSON
+        $Stream.WriteLine('{')
+        $Stream.WriteLine("`t""meta"": {")
+        $Stream.WriteLine("`t`t""count"": $Count,")
+        $Stream.WriteLine("`t`t""type"": ""az$($Type)"",")
+        $Stream.WriteLine("`t`t""version"": 4")
+        $Stream.WriteLine("`t},")        
+
+        # Write data JSON
+        $Stream.WriteLine("`t""data"": [")
+
+        $chunksize = 250
+        $chunkarray = @()
+        $parts = [math]::Ceiling($coll.Count / $chunksize)
+
+        Write-Info "Chunking output in $chunksize item sections"
+        for($n=0; $n -lt $parts; $n++){
+            $start = $n * $chunksize
+            $end = (($n+1)*$chunksize)-1
+            $chunkarray += ,@($coll[$start..$end])
+        }
+        $Count = $chunkarray.Count
+
+        $chunkcounter = 1
+        $jsonout = ""
+        ForEach ($chunk in $chunkarray) {
+            Write-Info "Writing JSON chunk $chunkcounter/$Count"
+            $jsonout = ConvertTo-Json($chunk)
+            $jsonout = $jsonout.trimstart("[`r`n").trimend("`r`n]")
+            $Stream.Write($jsonout)
+            If ($chunkcounter -lt $Count) {
+                $Stream.WriteLine(",")
+            } Else {
+                $Stream.WriteLine("")
+            }
+            $chunkcounter += 1
+        }
+        $stream.WriteLine("`t]")
+        $stream.WriteLine("}")
+    } finally {
+        $stream.close()
+    }
 }
 
 function Invoke-AzureHound {
