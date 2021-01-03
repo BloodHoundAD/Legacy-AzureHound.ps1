@@ -66,6 +66,7 @@ function New-Output($Coll, $Type, $Directory) {
 
         # Write data JSON
         $Stream.WriteLine("`t""data"": [")
+        $Stream.Flush()
 
         $chunksize = 250
         $chunkarray = @()
@@ -77,7 +78,6 @@ function New-Output($Coll, $Type, $Directory) {
             $end = (($n+1)*$chunksize)-1
             $chunkarray += ,@($coll[$start..$end])
         }
-        $Stream.Flush()
         $Count = $chunkarray.Count
 
         $chunkcounter = 1
