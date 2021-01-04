@@ -480,7 +480,7 @@ function Invoke-AzureHound {
         $null = $Coll.Add($AzureDeviceOwner)
     }
     New-Output -Coll $Coll -Type "devices" -Directory $OutputDirectory
-    
+ 
     # Enumerate group owners
     $Coll = New-Object System.Collections.ArrayList
     Write-Info "Checking if groups object is already built..."
@@ -797,7 +797,7 @@ function Invoke-AzureHound {
         }
     }
     New-Output -Coll $Coll -Type "kvpermissions" -Directory $OutputDirectory
-    
+
     <#$Coll = @()
     #KeyVault access policies
     $AADSubscriptions | ForEach-Object {
@@ -903,7 +903,7 @@ function Invoke-AzureHound {
     }
     New-Output -Coll $Coll -Type "kvaccesspolicies" -Directory $OutputDirectory
     #>
-    
+
     # Abusable AZ Admin Roles
     Write-Info "Beginning abusable Azure Admin role logic"
     Write-Info "Building initial admin role mapping object"
@@ -1471,12 +1471,10 @@ function Invoke-AzureHound {
         }
     }
     New-Output -Coll $Coll -Type "cloudappadmins" -Directory $OutputDirectory
-	Write-Info "Done processing Cloud Application Admins"
+    Write-Info "Done processing Cloud Application Admins"
 
     # Zip then delete output JSON files
     Write-Host "Compressing files"
-        $jsonpath = $OutputDirectory.Path + '\' + "*.json"
-        $destinationpath = $OutputDirectory.Path + '\' + "$name.zip"       
     $name = $date + "-azurecollection"
     $jsonpath = $OutputDirectory + [IO.Path]::DirectorySeparatorChar + "$date-*.json"
     $destinationpath = $OutputDirectory + [IO.Path]::DirectorySeparatorChar + "$name.zip"
