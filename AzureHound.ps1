@@ -1473,21 +1473,24 @@ function Invoke-AzureHound {
     New-Output -Coll $Coll -Type "cloudappadmins" -Directory $OutputDirectory
 	Write-Info "Done processing Cloud Application Admins"
 
+    # Zip then delete output JSON files
     Write-Host "Compressing files"
-    $location = Get-Location
-    If($OutputDirectory.path -eq $location.path){
-        $name = $date + "-azurecollection"
         $jsonpath = $OutputDirectory.Path + '\' + "*.json"
         $destinationpath = $OutputDirectory.Path + '\' + "$name.zip"       
+    $name = $date + "-azurecollection"
+    $jsonpath = $OutputDirectory + [IO.Path]::DirectorySeparatorChar + "$date-*.json"
+    $destinationpath = $OutputDirectory + [IO.Path]::DirectorySeparatorChar + "$name.zip"
+    
+    $error.Clear()
+    try{
         Compress-Archive $jsonpath -DestinationPath $destinationpath
-        rm $jsonpath
     }
-    else{
-        $name = $date + "-azurecollection"
-        $jsonpath = $OutputDirectory + '\' + "*.json"
-        $destinationpath = $OutputDirectory + '\' + "$name.zip"
-        Compress-Archive $jsonpath -DestinationPath $destinationpath
-        rm $jsonpath
+    finally {
+        # Empty as powershell needs at least a catch or finally, but don't use either.
     }
-    Write-Host "Done! Drag and drop the zip into the BloodHound GUI to import data."
+    if (!$error) {
+        rm $jsonpath
+        Write-Host "Zip file created: $destinationpath"
+        Write-Host "Done! Drag and drop the zip into the BloodHound GUI to import data."
+    }
 }
