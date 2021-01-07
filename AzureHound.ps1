@@ -1475,19 +1475,26 @@ function Invoke-AzureHound {
 
     Write-Host "Compressing files"
     $location = Get-Location
+    $name = $date + "-azurecollection"
     If($OutputDirectory.path -eq $location.path){
-        $name = $date + "-azurecollection"
-        $jsonpath = $OutputDirectory.Path + '\' + "*.json"
-        $destinationpath = $OutputDirectory.Path + '\' + "$name.zip"       
-        Compress-Archive $jsonpath -DestinationPath $destinationpath
-        rm $jsonpath
+        $jsonpath = $OutputDirectory.Path + [IO.Path]::DirectorySeparatorChar + "$date-*.json"
+        $destinationpath = $OutputDirectory.Path + [IO.Path]::DirectorySeparatorChar + "$name.zip"
     }
     else{
-        $name = $date + "-azurecollection"
-        $jsonpath = $OutputDirectory + '\' + "*.json"
-        $destinationpath = $OutputDirectory + '\' + "$name.zip"
-        Compress-Archive $jsonpath -DestinationPath $destinationpath
-        rm $jsonpath
+        $jsonpath = $OutputDirectory + [IO.Path]::DirectorySeparatorChar + "$date-*.json"
+        $destinationpath = $OutputDirectory + [IO.Path]::DirectorySeparatorChar + "$name.zip"
     }
-    Write-Host "Done! Drag and drop the zip into the BloodHound GUI to import data."
+
+    $error.Clear()
+    try {
+        Compress-Archive $jsonpath -DestinationPath $destinationpath
+    }
+    catch {
+        Write-Host "Zip file creation failed, JSON files may still be importable."
+    }
+    if (!$error) {
+        Write-Host "Zip file created: $destinationpath"
+        rm $jsonpath
+        Write-Host "Done! Drag and drop the zip into the BloodHound GUI to import data."
+    }
 }
