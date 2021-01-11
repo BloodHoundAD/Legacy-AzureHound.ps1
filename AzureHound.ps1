@@ -139,11 +139,14 @@ function Invoke-AzureHound {
         $TenantObj = Invoke-RestMethod -Headers $Headers -Uri 'https://graph.microsoft.com/beta/organization'
         $Tenant = $TenantObj.value
         $TenantId = $Tenant.id
-	}
+    }
+
+    $sect = 1 # for section counter on progress output
+    $numsections = 40 # total number of sections
 
     # Enumerate users
     $Coll = New-Object System.Collections.ArrayList
-    Write-Info "Building users object, this may take a few minutes."
+    Write-Info "== [$sect/$numsections] Building users object, this may take a few minutes."; $sect++
 	$AADUsers = Get-AzureADUser -All $True | Select UserPrincipalName,OnPremisesSecurityIdentifier,ObjectID,TenantId
     $TotalCount = $AADUsers.Count
     Write-Host "Done building users object, processing ${TotalCount} users"
@@ -183,7 +186,7 @@ function Invoke-AzureHound {
 
     # Enumerate groups
     $Coll = New-Object System.Collections.ArrayList
-    Write-Info "Building groups object, this may take a few minutes."
+    Write-Info "== [$sect/$numsections] Building groups object, this may take a few minutes."; $sect++
     $AADGroups = Get-AzureADGroup -All $True -Filter "securityEnabled eq true"
     $TotalCount = $AADGroups.Count
     Write-Info "Done building groups object, processing ${TotalCount} groups"
@@ -217,7 +220,7 @@ function Invoke-AzureHound {
     
     # Enumerate tenants:
     $Coll = New-Object System.Collections.ArrayList
-    Write-Info "Building tenant(s) object."
+    Write-Info "== [$sect/$numsections] Building tenant(s) object."; $sect++
     $AADTenants = Get-AzureADTenantDetail
     $TotalCount = $AADTenants.Count
     If ($TotalCount -gt 1) {
@@ -253,7 +256,7 @@ function Invoke-AzureHound {
 
     # Enumerate subscriptions:
     $Coll = New-Object System.Collections.ArrayList
-    Write-Info "Building subscription(s) object."
+    Write-Info "== [$sect/$numsections] Building subscription(s) object."; $sect++
     $AADSubscriptions = Get-AzSubscription
     $TotalCount = $AADSubscriptions.Count
     If ($TotalCount -gt 1) {
@@ -290,6 +293,7 @@ function Invoke-AzureHound {
     
     # Enumerate resource groups:
     $Coll = New-Object System.Collections.ArrayList
+    Write-Info "== [$sect/$numsections] Building resource groups object."; $sect++
     $AADSubscriptions | ForEach-Object {
 
         $SubDisplayName = $_.Name
@@ -338,6 +342,7 @@ function Invoke-AzureHound {
 
     $Coll = New-Object System.Collections.ArrayList
     # Get VMs
+    Write-Info "== [$sect/$numsections] Building virtual machines object."; $sect++
     $AADSubscriptions | ForEach-Object {
 
         $SubDisplayName = $_.Name
@@ -391,6 +396,7 @@ function Invoke-AzureHound {
     
     $Coll = New-Object System.Collections.ArrayList
     # Get KeyVaults
+    Write-Info "== [$sect/$numsections] Building keyvaults object."; $sect++
     $AADSubscriptions | ForEach-Object {
 
         $SubDisplayName = $_.Name
@@ -444,7 +450,7 @@ function Invoke-AzureHound {
     
     $Coll = New-Object System.Collections.ArrayList
     # Get devices and their owners
-    Write-Info "Building devices object."
+    Write-Info "== [$sect/$numsections] Building devices object."; $sect++
     $AADDevices =  Get-AzureADDevice | ?{$_.DeviceOSType -Match "Windows" -Or $_.DeviceOSType -Match "Mac"}
     $TotalCount = $AADDevices.Count
     Write-Info "Done building devices object, processing ${TotalCount} devices"
@@ -483,6 +489,7 @@ function Invoke-AzureHound {
     
     # Enumerate group owners
     $Coll = New-Object System.Collections.ArrayList
+    Write-Info "== [$sect/$numsections] Building group owners object."; $sect++
     Write-Info "Checking if groups object is already built..."
     If ($AADGroups.Count -eq 0) {
         Write-Info "Creating groups object, this may take a few minutes."
@@ -528,6 +535,7 @@ function Invoke-AzureHound {
 
     # Enumerate group members
     $Coll = New-Object System.Collections.ArrayList
+    Write-Info "== [$sect/$numsections] Building group members object."; $sect++
     Write-Info "Checking if groups object is already built..."
     If ($AADGroups.Count -eq 0) {
         Write-Info "Creating groups object, this may take a few minutes."
@@ -580,6 +588,7 @@ function Invoke-AzureHound {
     # Avere Contributor             4f8fab4f-1852-4a58-a46a-8eaf358af14a
     # Virtual Machine Contributor   9980e02c-c2be-4d73-94e8-173b1dc7cf3c
     $Coll = New-Object System.Collections.ArrayList
+    Write-Info "== [$sect/$numsections] Building virtual machine permissions object."; $sect++
     $AADSubscriptions | ForEach-Object {
 
         $SubDisplayName = $_.Name
@@ -660,6 +669,7 @@ function Invoke-AzureHound {
     # Owner                         8e3af657-a8ff-443c-a75c-2fe8c4bcb635
     # User Access Administrator     18d7d88d-d35e-4fb5-a5c3-7773c20a72d9
     $Coll = New-Object System.Collections.ArrayList
+    Write-Info "== [$sect/$numsections] Building resource group permissions object."; $sect++
     $AADSubscriptions | ForEach-Object {
 
         $SubDisplayName = $_.Name
@@ -733,6 +743,7 @@ function Invoke-AzureHound {
     # User Access Administrator     18d7d88d-d35e-4fb5-a5c3-7773c20a72d9
     # Key Vaults
     $Coll = New-Object System.Collections.ArrayList
+    Write-Info "== [$sect/$numsections] Building key vault permissions object."; $sect++
     $AADSubscriptions | ForEach-Object {
 
         $SubDisplayName = $_.Name
@@ -905,8 +916,7 @@ function Invoke-AzureHound {
     #>
     
     # Abusable AZ Admin Roles
-    Write-Info "Beginning abusable Azure Admin role logic"
-    Write-Info "Building initial admin role mapping object"
+    Write-Info "== [$sect/$numsections] Building initial admin role mapping object."; $sect++
     $Results = Get-AzureADDirectoryRole | ForEach-Object {
         
         $Role = $_
@@ -929,9 +939,8 @@ function Invoke-AzureHound {
         }
         
     }
-    Write-Info "Done building initial admin role mapping object"
     
-    Write-Info "Massasing initial object into object we will use later"
+    Write-Info "== [$sect/$numsections] Massaging initial admin object into an object to be used later."; $sect++
     $UsersAndRoles = ForEach ($User in $Results) {
         $CurrentUser = $User.MemberID
 		$CurrentObjectType = $User.MemberType
@@ -954,11 +963,9 @@ function Invoke-AzureHound {
 
     $UserRoles = $UsersAndRoles | Sort-Object -Unique -Property UserName
     $UsersWithRoles = $UserRoles.UserID
-    Write-Info "Done building object we will use later"
 
-    Write-Info "Building our users without roles object"
+    Write-Info "== [$sect/$numsections] Building users without roles object"; $sect++
     $UsersWithoutRoles = $AADUsers | ? { $_.ObjectID -NotIn $UsersWithRoles }
-    Write-Info "Done building our users without roles object"
     
     $AuthAdminsList = @(
         'c4e39bd9-1100-46d3-8c65-fb160da0071f',
@@ -994,7 +1001,7 @@ function Invoke-AzureHound {
     )
     
     #Privileged authentication administrator
-    Write-Info "Processing privileged authentication admin role"
+    Write-Info "== [$sect/$numsections] Processing privileged authentication admin role."; $sect++
     $PrivilegedAuthenticationAdmins = $UserRoles | ? { $_.RoleID -Contains '7be44c8a-adaf-4e2a-84d6-ab2649e08a13' }
     $TotalCount = $PrivilegedAuthenticationAdmins.Count
     Write-Info "Privileged authentication admins to process: ${TotalCount}"
@@ -1030,10 +1037,9 @@ function Invoke-AzureHound {
             $PWResetRight
         }
     }
-    Write-Info "Done processing authentication admin role"
     
     # Authentication admins
-    Write-Info "Processing authentication admin role"
+    Write-Info "== [$sect/$numsections] Processing authentication admin role"; $sect++
     $AuthenticationAdmins = $UserRoles | ? { $_.RoleID -Contains 'c4e39bd9-1100-46d3-8c65-fb160da0071f' }
     $TotalCount = $AuthenticationAdmins.Count
     Write-Info "Authentication admins to process: ${TotalCount}"
@@ -1072,10 +1078,9 @@ function Invoke-AzureHound {
             $PWResetRight
         }
     }
-    Write-Info "Done processing authentication admin role"
     
     # Help Desk Admin
-    Write-Info "Processing help desk admin role"
+    Write-Info "== [$sect/$numsections] Processing help desk admin role"; $sect++
     $HelpdeskAdmins = $UserRoles | ? { $_.RoleID -Contains '729827e3-9c14-49f7-bb1b-9608f156bbb8' }
     $TotalCount = $HelpdeskAdmins.Count
     Write-Info "Help desk admins to process: ${TotalCount}"
@@ -1114,10 +1119,9 @@ function Invoke-AzureHound {
         }
     
     }
-    Write-Info "Done processing help desk admin role"
     
     # Password Admin role
-    Write-Info "Processing password admin role"
+    Write-Info "== [$sect/$numsections] Processing password admin role"; $sect++
     $PasswordAdmins = $UserRoles | ? { $_.RoleID -Contains '966707d0-3269-4727-9be2-8c3a10f19b9d' }
     $TotalCount = $PasswordAdmins.Count
     Write-Info "Password admins to process: ${TotalCount}"
@@ -1156,10 +1160,9 @@ function Invoke-AzureHound {
         }
 
     }
-    Write-Info "Done processing password admin role"
     
     # User Account Admin role
-    Write-Info "Processing user account admin role"
+    Write-Info "== [$sect/$numsections] Processing user account admin role"; $sect++
     $UserAccountAdmins = $UserRoles | ? { $_.RoleID -Contains 'fe930be7-5e62-47db-91af-98c3a49a38b1' }
     $TotalCount = $UserAccountAdmins.Count
     Write-Info "User account admins to process: ${TotalCount}"
@@ -1212,12 +1215,11 @@ function Invoke-AzureHound {
 
         }   
     }
-    Write-Info "Done processing user account admin role"
     
     $CloudGroups = $AADGroups | ? { $_.OnPremisesSecurityIdentifier -eq $null } | Select DisplayName, ObjectID
     
     # Intune administrator - 3a2c62db-5318-420d-8d74-23affee5d9d5 - Can add principals to cloud-resident security groups
-    Write-Info "Processing Intune Admin role"
+    Write-Info "== [$sect/$numsections] Processing Intune Admin role"; $sect++
     $IntuneAdmins = $UserRoles | ? { $_.RoleID -Contains '3a2c62db-5318-420d-8d74-23affee5d9d5' }
     $IntuneAdminsRights = ForEach ($User in $IntuneAdmins) {
                 
@@ -1234,10 +1236,9 @@ function Invoke-AzureHound {
             $GroupRight
         }
     }
-    Write-Info "Done processing Intune Admin role"
     
     # Groups administrator - Can add principals to cloud-resident security groups
-    Write-Info "Processing groups admin role"
+    Write-Info "== [$sect/$numsections] Processing groups admin role"; $sect++
     $GroupsAdmins = $UserRoles | ? { $_.RoleID -Contains 'fdd7a751-b60b-444a-984c-02652fe8fa1c' }
     $GroupsAdminsRights = ForEach ($User in $GroupsAdmins) {
                 
@@ -1254,15 +1255,14 @@ function Invoke-AzureHound {
             $GroupRight
         }
     }
-    Write-Info "Done processing groups admin role"
     
     # Rights against the tenant itself
-    
+    Write-Info "== [$sect/$numsections] Getting tenant details"; $sect++
     $TenantDetails = Get-AzureADTenantDetail
     
     # Global Admin - has full control of everything in the tenant
     
-    Write-Info "Processing Global Admin role"
+    Write-Info "== [$sect/$numsections] Processing Global Admin role"; $sect++
     $GlobalAdmins = $UserRoles | ? { $_.RoleID -Contains '62e90394-69f5-4237-9190-012177145e10' }
     $GlobalAdminsRights = ForEach ($User in $GlobalAdmins) {    
 
@@ -1276,11 +1276,10 @@ function Invoke-AzureHound {
         }
         $GlobalAdminRight
     }
-    Write-Info "Done processing Global Admin role"
     
     # Privilege role administrator
     # Can add role assignments to any other user including themselves
-    Write-Info "Processing Privileged Role Admin role"
+    Write-Info "== [$sect/$numsections] Processing Privileged Role Admin role"; $sect++
     $PrivRoleColl = New-Object System.Collections.ArrayList
     $PrivilegedRoleAdmins = $UserRoles | ? { $_.RoleID -Contains 'e8611ab8-c189-46e8-94e1-60213ab1f814' }
     $PrivilegedRoleAdminRights = ForEach ($User in $PrivilegedRoleAdmins) { 
@@ -1295,40 +1294,47 @@ function Invoke-AzureHound {
         }
         $null = $PrivRoleColl.Add($PrivilegedRoleAdminRight)
     }
-    Write-Info "Done processing Privileged Role Admin role"
     
+    Write-Info "== [$sect/$numsections] Collating privileged admin rights"; $sect++
     $Coll = New-Object System.Collections.ArrayList
     $PrivilegedAuthenticationAdminRights | ForEach-Object {
         $null = $Coll.Add($_)
     }
+    Write-Info "== [$sect/$numsections] Collating authentication admin rights"; $sect++
     $AuthAdminsRights | ForEach-Object {
         $null = $Coll.Add($_)
     }
+    Write-Info "== [$sect/$numsections] Collating helpdesk admin rights"; $sect++
     $HelpdeskAdminsRights | ForEach-Object {
         $null = $Coll.Add($_)
     }
+    Write-Info "== [$sect/$numsections] Collating password admin rights"; $sect++
     $PasswordAdminsRights | ForEach-Object {
         $null = $Coll.Add($_)
     }
+    Write-Info "== [$sect/$numsections] Collating user account admin rights"; $sect++
     $UserAccountAdminsRights | ForEach-Object {
         $null = $Coll.Add($_)
     }
     New-Output -Coll $Coll -Type "pwresetrights" -Directory $OutputDirectory  
 
+    Write-Info "== [$sect/$numsections] Collating In-Tune admin rights"; $sect++
     $Coll = New-Object System.Collections.ArrayList
     $IntuneAdminsRights | ForEach-Object {
         $null = $Coll.Add($_)
     }
+    Write-Info "== [$sect/$numsections] Collating groups admin rights"; $sect++
     $GroupsAdminsRights | ForEach-Object {
         $null = $Coll.Add($_)
     }
+    Write-Info "== [$sect/$numsections] Outputting rights"; $sect++
     New-Output -Coll $Coll -Type "groupsrights" -Directory $OutputDirectory
     New-Output -Coll $GlobalAdminsRights -Type "globaladminrights" -Directory $OutputDirectory
     New-Output -Coll $PrivRoleColl -Type "privroleadminrights" -Directory $OutputDirectory
 
     $Coll = New-Object System.Collections.ArrayList
     # Get app owners
-	Write-Info "Processing application owners"
+	Write-Info "== [$sect/$numsections] Processing application owners"; $sect++
     Get-AzureADApplication -All $True | ForEach-Object {
 
     $AppId = $_.AppId
@@ -1352,10 +1358,9 @@ function Invoke-AzureHound {
     }
     }
     New-Output -Coll $Coll -Type "applicationowners" -Directory $OutputDirectory
-	Write-Info "Done processing application owners"
 
    $Coll = New-Object System.Collections.ArrayList
-   Write-Info "Processing application to service principal relations"
+   Write-Info "== [$sect/$numsections] Processing application to service principal relations"; $sect++
    $SPOS = Get-AzADApplication | Get-AzADServicePrincipal | %{
 
     $ServicePrincipals = [PSCustomObject]@{
@@ -1369,8 +1374,8 @@ function Invoke-AzureHound {
 
     }
     New-Output -Coll $Coll -Type "applicationtosp" -Directory $OutputDirectory
-	Write-Info "Done processing application to service principal relations"
         
+    Write-Info "== [$sect/$numsections] Getting principals for each admin role"; $sect++
     $PrincipalRoles = ForEach ($User in $Results){
         $SPRoles = New-Object PSObject
         If ($User.MemberType -match 'servicePrincipal')
@@ -1389,7 +1394,7 @@ function Invoke-AzureHound {
     $SPswithoutRoles = $SPOS | Where-Object {$_.ServicePrincipalID -notin $PrincipalRoles.SPId}
 
     $Coll = New-Object System.Collections.ArrayList
-	Write-Info "Processing Application Admins"
+	Write-Info "== [$sect/$numsections] Processing Application Admins"; $sect++
     # Application Admins - Can create new secrets for application service principals
     # Write to appadmins.json
     $AppAdmins = $UserRoles | Where-Object {$_.RoleID -match '9b895d92-2cd3-44c7-9d02-a6ac2d5ea5c3'}
@@ -1429,11 +1434,10 @@ function Invoke-AzureHound {
         }
     }
     New-Output -Coll $Coll -Type "applicationadmins" -Directory $OutputDirectory
-	Write-Info "Done processing Application Admins"
     
     # Cloud Application Admins - Can create new secrets for application service principals
     # Write to cloudappadmins.json
-	Write-Info "Processing Cloud Application Admins"
+	Write-Info "== [$sect/$numsections] Processing Cloud Application Admins"; $sect++
     $Coll = New-Object System.Collections.ArrayList
     $CloudAppAdmins = $UserRoles | Where-Object {$_.RoleID -match '158c047a-c907-4556-b7ef-446551a6b5f7'}
     $SPsWithAzureAppAdminRole = $UserRoles | Where-Object {$_.RoleID -match '158c047a-c907-4556-b7ef-446551a6b5f7' -and $_.UserType -match 'serviceprincipal' }
@@ -1471,9 +1475,8 @@ function Invoke-AzureHound {
         }
     }
     New-Output -Coll $Coll -Type "cloudappadmins" -Directory $OutputDirectory
-	Write-Info "Done processing Cloud Application Admins"
 
-    Write-Host "Compressing files"
+    Write-Host "== [$sect/$numsections] Compressing files"; $sect++
     $location = Get-Location
     $name = $date + "-azurecollection"
     If($OutputDirectory.path -eq $location.path){
