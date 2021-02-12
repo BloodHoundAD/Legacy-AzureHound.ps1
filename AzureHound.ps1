@@ -931,7 +931,7 @@ function Invoke-AzureHound {
     }
     Write-Info "Done building initial admin role mapping object"
     
-    Write-Info "Massasing initial object into object we will use later"
+    Write-Info "Massaging initial object into object we will use later"
     $UsersAndRoles = ForEach ($User in $Results) {
         $CurrentUser = $User.MemberID
 		$CurrentObjectType = $User.MemberType
