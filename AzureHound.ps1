@@ -1473,6 +1473,26 @@ function Invoke-AzureHound {
     New-Output -Coll $Coll -Type "cloudappadmins" -Directory $OutputDirectory
 	Write-Info "Done processing Cloud Application Admins"
 
+
+    ## add output for licenses
+    Write-Info "Processing Assigned Licenses (SKUs)"
+    ForEach ($AADUser in $AADUsers) {
+        $AssignSkuPartNumbers =  (Get-AzureADUserLicenseDetail  -ObjectId $AADUser.ObjectID)
+        $AssignSkuPartNumbers | % {
+            if ($_.skupartnumber -ne $null) {
+                $AssignedSku = [PSCustomObject]@{
+                    UserID          = $AADUser.ObjectID
+                    SkuPartnumber   = $_.skupartnumber
+                    ServicePlan     = $_.ServicePlan
+                    SkuId           = $_.SkuId
+                    }
+                $null = $Coll.Add($AssignedSku)
+                }
+            }
+        }    
+    New-Output -Coll $Coll -Type "licenses" -Directory $OutputDirectory
+    Write-Info "Done processing Assigned Licenses (SKUs)"
+
     Write-Host "Compressing files"
     $location = Get-Location
     $name = $date + "-azurecollection"
