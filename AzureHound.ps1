@@ -1014,7 +1014,7 @@ function Invoke-AzureHound {
                 TargetUserID        = $TargetUser.UserID
                 TargetUserOnPremID  = $TargetUser.UserOnPremID
             }
-	    $PWResetRight
+            $PWResetRight
         }
             
         ForEach ($TargetUser in $UsersWithoutRoles) {
