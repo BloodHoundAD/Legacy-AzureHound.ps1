@@ -914,18 +914,34 @@ function Invoke-AzureHound {
         $RoleMembers = Get-AzureADDirectoryRoleMember -ObjectID $Role.ObjectID
         
         ForEach ($Member in $RoleMembers) {
+            If ($Member.ObjectType -Match "Group") {
+                $GroupMembers = Get-AzureADGroupMember -All $True -ObjectId "$($Member.ObjectID)"
 
-            $RoleMembership = [PSCustomObject]@{
-                MemberName      = $Member.DisplayName
-                MemberID        = $Member.ObjectID
-                MemberOnPremID  = $Member.OnPremisesSecurityIdentifier
-                MemberUPN       = $Member.UserPrincipalName
-                MemberType      = $Member.ObjectType
-                RoleID          = $Role.RoleTemplateId
+                ForEach ($GroupMember in $GroupMembers) {
+                    $RoleMembership = [PSCustomObject]@{
+                        MemberName      = $GroupMember.DisplayName
+                        MemberID        = $GroupMember.ObjectID
+                        MemberOnPremID  = $GroupMember.OnPremisesSecurityIdentifier
+                        MemberUPN       = $GroupMember.UserPrincipalName
+                        MemberType      = $GroupMember.ObjectType
+                        RoleID          = $Role.RoleTemplateId
+                    }
+                    $RoleMembership
+                }
+
+            } Else {
+                $RoleMembership = [PSCustomObject]@{
+                    MemberName      = $Member.DisplayName
+                    MemberID        = $Member.ObjectID
+                    MemberOnPremID  = $Member.OnPremisesSecurityIdentifier
+                    MemberUPN       = $Member.UserPrincipalName
+                    MemberType      = $Member.ObjectType
+                    RoleID          = $Role.RoleTemplateId
+                }
+
+                $RoleMembership
             }
-        
-            $RoleMembership
-        
+
         }
         
     }
@@ -964,32 +980,37 @@ function Invoke-AzureHound {
         'c4e39bd9-1100-46d3-8c65-fb160da0071f',
         '88d8e3e3-8f55-4a1e-953a-9b9898b8876b',
         '95e79109-95c0-4d8e-aee3-d01accf2d47b',
-        '729827e3-9c14-49f7-bb1b-9608f156bbb8',
+        '966707d0-3269-4727-9be2-8c3a10f19b9d',
         '790c1fb9-7f7d-4f88-86a1-ef1f95c05c1b',
-        '4a5d8f65-41da-4de4-8968-e035b65339cf'
+        '4a5d8f65-41da-4de4-8968-e035b65339cf',
+        '75934031-6c7e-415a-99d7-48dbd49e875e'
     )
-        
+
     $HelpdeskAdminsList = @(
-        'c4e39bd9-1100-46d3-8c65-fb160da0071f',
         '88d8e3e3-8f55-4a1e-953a-9b9898b8876b',
         '95e79109-95c0-4d8e-aee3-d01accf2d47b',
         '729827e3-9c14-49f7-bb1b-9608f156bbb8',
         '790c1fb9-7f7d-4f88-86a1-ef1f95c05c1b',
+        '966707d0-3269-4727-9be2-8c3a10f19b9d',
+        '75934031-6c7e-415a-99d7-48dbd49e875e',
         '4a5d8f65-41da-4de4-8968-e035b65339cf'
     )
-        
+
     $PasswordAdminList = @(
         '88d8e3e3-8f55-4a1e-953a-9b9898b8876b',
         '95e79109-95c0-4d8e-aee3-d01accf2d47b',
         '966707d0-3269-4727-9be2-8c3a10f19b9d'
     )
-    
+
     $UserAdminList = @(
         '88d8e3e3-8f55-4a1e-953a-9b9898b8876b',
         '95e79109-95c0-4d8e-aee3-d01accf2d47b',
         '729827e3-9c14-49f7-bb1b-9608f156bbb8',
         '790c1fb9-7f7d-4f88-86a1-ef1f95c05c1b',
         '4a5d8f65-41da-4de4-8968-e035b65339cf',
+        '966707d0-3269-4727-9be2-8c3a10f19b9d',
+        '75934031-6c7e-415a-99d7-48dbd49e875e',
+        'fdd7a751-b60b-444a-984c-02652fe8fa1c',
         'fe930be7-5e62-47db-91af-98c3a49a38b1'
     )
     
@@ -1014,6 +1035,7 @@ function Invoke-AzureHound {
                 TargetUserID        = $TargetUser.UserID
                 TargetUserOnPremID  = $TargetUser.UserOnPremID
             }
+            $PWResetRight
         }
             
         ForEach ($TargetUser in $UsersWithoutRoles) {
